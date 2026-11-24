@@ -1,0 +1,16 @@
+{
+  "name": "motion-studio-skill",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Development harness for the motion-studio Claude skill (smoke tests). The skill itself lives in skills/motion-studio.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "bash test/smoke.sh",
+    "zip": "cd skills && rm -f ../motion-studio.zip && zip -rq ../motion-studio.zip motion-studio && echo wrote motion-studio.zip"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.0.0"
+  },
+  "engines": { "node": ">=18" }
+}

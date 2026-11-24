@@ -1,0 +1,356 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>motion-studio · collage</title>
+<!-- Fonts load if online; the page falls back to Courier New after 4 s offline. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@700&display=block">
+<style>html,body{margin:0;height:100%;background:#151413;display:grid;place-items:center}
+canvas{max-width:100vw;max-height:100vh}#hud{position:fixed;left:8px;bottom:6px;font:12px monospace;color:#999}</style>
+</head><body><canvas id="cv"></canvas><div id="hud"></div>
+<!-- Optional inputs, written by the helper scripts. Missing files are fine. -->
+<script src="voice.js" onerror="window.VOICE=null"></script>          <!-- voice-sync.mjs -->
+<script src="cutouts/manifest.js" onerror="window.CUTOUTS={}"></script><!-- cutout.py -->
+<script>
+'use strict';
+/* =====================================================================
+   SURREAL PHOTO-COLLAGE TEMPLATE
+   Cut-out pieces enter one by one on twos (12 drawings/s), idle with a
+   stop-motion "boil", torn-paper wipes between scenes, word-by-word
+   captions synced to the voiceover. render(f) is PURE: same f → same frame.
+   Edit sections 1, 4 and 5. Everything else is the engine.
+   ===================================================================== */
+
+// ---------- 0. Format ----------
+const W = 1080, H = 1920, FPS = 24;
+const VOICE = window.VOICE || null;                 // {duration, phrases[], words[]}
+const CUTOUTS = window.CUTOUTS || {};               // {name: {src,x,y,w,h,sceneW,sceneH}}
+const cue = (i, fallback) => (VOICE && VOICE.phrases[i]) ? VOICE.phrases[i].start : fallback;
+const DUR = VOICE ? +(VOICE.duration + 1.2).toFixed(2) : 9.5;   // ≥1 s hold after the last word
+const NF = Math.round(DUR * FPS);
+const cv = document.getElementById('cv'); cv.width = W; cv.height = H;
+const X = cv.getContext('2d', { willReadFrequently: true });   // required by the renderer
+
+// ---------- 1. Palette (replace with the Style Bible hexes) ----------
+const P = {
+  skyTop: '#6f9aaa', sky: '#8fb4bf', skyLow: '#b9cfcc', paper: '#f2ecdd',
+  moon: '#e9d88f', stone: '#cfa66c', stoneDark: '#8d6a3d',
+  leaf: '#7fa65a', leafDark: '#46703a', leafLight: '#bcd28f', bloom: '#f1ecd4',
+  metal: '#c9cdd0', metalDark: '#6f767b',
+  capActive: '#b4402c', capPast: '#77736b', capEdge: '#f2ecdd',
+};
+
+// ---------- 2. Engine utilities ----------
+function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hash = (...n) => rng(n.reduce((h, v) => Math.imul(h ^ (v | 0), 2654435761) + 0x9e37 | 0, 7))();
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, at, dur) => clamp((t - at) / dur);
+const E = {
+  outCubic: t => 1 - Math.pow(1 - t, 3),
+  inOut: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+  outBack: (t, s = 1.9) => 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2),
+  spring: t => t >= 1 ? 1 : 1 - Math.exp(-5.5 * t) * Math.cos(11 * t),
+  outBounce: t => { const n = 7.5625, d = 2.75; if (t < 1 / d) return n * t * t; if (t < 2 / d) return n * (t -= 1.5 / d) * t + .75; if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + .9375; return n * (t -= 2.625 / d) * t + .984375; },
+};
+const onTwos = f => Math.floor(f / 2) * 2;          // stop-motion: a new drawing every 2 frames
+const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.ceil(w); c.height = Math.ceil(h); return c; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('missing image ' + src)); i.src = src; });
+
+function paperTexture(w, h, base, seed, amt = 1) {
+  const c = canvas(w, h), g = c.getContext('2d'), r = rng(seed);
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 40; i++) {                     // mottling
+    const x = r() * w, y = r() * h, rr = 80 + r() * 380, gr = g.createRadialGradient(x, y, 0, x, y, rr);
+    const d = r() < .5 ? '0,0,0' : '255,255,255'; gr.addColorStop(0, `rgba(${d},${.05 * amt})`); gr.addColorStop(1, `rgba(${d},0)`);
+    g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+  }
+  g.lineWidth = 1;                                    // fibres
+  for (let i = 0; i < w * h / 2500; i++) {
+    const x = r() * w, y = r() * h, a = r() * 6.28, l = 4 + r() * 16;
+    g.strokeStyle = `rgba(${r() < .5 ? '60,45,30' : '255,255,245'},${.08 * amt})`;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * l * .5 + r() * 3, y + Math.sin(a) * l * .5, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  const id = g.getImageData(0, 0, w, h), d = id.data;  // per-pixel noise
+  for (let i = 0; i < d.length; i += 4) { const n = (r() - .5) * 22 * amt; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  g.putImageData(id, 0, 0); return c;
+}
+
+// A cut-out sprite: drawn once, given paper grain + a soft drop shadow (the "glued paper" look).
+function makeSprite(src, w, h, seed, { shadow = 0.32, grain = 0.5 } = {}) {
+  const inner = canvas(w, h), g = inner.getContext('2d');
+  if (typeof src === 'function') src(g, w, h, rng(seed)); else g.drawImage(src, 0, 0, w, h);
+  if (grain) { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = grain * .5; g.drawImage(TEX.grainTile, 0, 0, w, h); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
+  const pad = 40, c = canvas(w + pad * 2, h + pad * 2), o = c.getContext('2d');
+  if (shadow) { o.shadowColor = `rgba(25,18,8,${shadow})`; o.shadowBlur = 22; o.shadowOffsetX = 4; o.shadowOffsetY = 12; }
+  o.drawImage(inner, pad, pad);
+  return { c, w, h, pad };
+}
+
+// ---------- 3. Procedural demo pieces (replace with real cut-outs from cutout.py) ----------
+function clover(g, x, y, s, r, col) {
+  const base = r() * 6.28;
+  g.fillStyle = col;
+  for (let k = 0; k < 3; k++) {
+    const a = base + k * 2.094, cx = x + Math.cos(a) * s * .55, cy = y + Math.sin(a) * s * .55;
+    g.beginPath();                                       // heart-shaped leaflet = two lobes
+    g.arc(cx + Math.cos(a + 1.57) * s * .22, cy + Math.sin(a + 1.57) * s * .22, s * .36, 0, 7);
+    g.arc(cx - Math.cos(a + 1.57) * s * .22, cy - Math.sin(a + 1.57) * s * .22, s * .36, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(30,50,20,.35)'; g.lineWidth = Math.max(1, s * .04);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(cx + Math.cos(a) * s * .3, cy + Math.sin(a) * s * .3); g.stroke();
+  }
+  g.fillStyle = 'rgba(255,255,230,.18)'; g.beginPath(); g.arc(x - s * .2, y - s * .25, s * .3, 0, 7); g.fill();
+}
+function field(haze) {
+  return (g, w, h, r) => {
+    const gr = g.createLinearGradient(0, h * .3, 0, h); gr.addColorStop(0, P.leafDark); gr.addColorStop(1, '#2f4f27');
+    g.fillStyle = gr; g.fillRect(0, h * .32, w, h);
+    const pts = []; for (let i = 0; i < 520; i++) pts.push([r() * w, h * .06 + Math.pow(r(), .75) * h * .95]);
+    pts.sort((a, b) => a[1] - b[1]);
+    for (const [x, y] of pts) {
+      const s = 16 + (y / h) * 46, c = [P.leafDark, P.leaf, P.leaf, P.leafLight][Math.floor(r() * 4)];
+      if (r() < .13) { g.fillStyle = P.bloom; for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(x + (r() - .5) * s * .7, y + (r() - .5) * s * .7, s * .2, 0, 7); g.fill(); } }
+      else clover(g, x, y, s, r, c);
+    }
+    if (haze) { g.globalCompositeOperation = 'source-atop'; g.fillStyle = `rgba(200,220,215,${haze})`; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; }
+  };
+}
+const DEMO = {
+  moon: { w: 720, h: 720, draw(g, w, h, r) {
+    const R = w / 2 - 4, gr = g.createRadialGradient(w * .42, h * .4, R * .1, w / 2, h / 2, R);
+    gr.addColorStop(0, '#f6eab4'); gr.addColorStop(.75, P.moon); gr.addColorStop(1, '#c4ab62');
+    g.fillStyle = gr; g.beginPath(); g.arc(w / 2, h / 2, R, 0, 7); g.fill(); g.save(); g.clip();
+    for (let i = 0; i < 10; i++) { const x = w * (.2 + r() * .6), y = h * (.2 + r() * .6), rr = R * (.12 + r() * .25), m = g.createRadialGradient(x, y, 0, x, y, rr);
+      m.addColorStop(0, 'rgba(130,110,55,.38)'); m.addColorStop(1, 'rgba(130,110,55,0)'); g.fillStyle = m; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+    for (let i = 0; i < 80; i++) { const x = r() * w, y = r() * h, rr = 2 + Math.pow(r(), 3) * 26;
+      g.strokeStyle = 'rgba(110,90,45,.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, rr, 0, 7); g.stroke();
+      g.fillStyle = 'rgba(255,250,220,.22)'; g.beginPath(); g.arc(x - rr * .25, y - rr * .25, rr * .6, 0, 7); g.fill(); }
+    for (let i = 0; i < 4000; i++) { g.fillStyle = r() < .5 ? 'rgba(90,75,40,.16)' : 'rgba(255,255,235,.16)'; g.fillRect(r() * w, r() * h, 1.6, 1.6); }
+    g.restore();
+  } },
+  pyramid: { w: 820, h: 640, draw(g, w, h, r) {
+    const A = [w * .5, 14], L = [14, h - 70], F = [w * .6, h - 14], Rr = [w - 14, h - 90];
+    const face = (pts, col, dark) => {
+      g.save(); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.closePath(); g.fillStyle = col; g.fill(); g.clip();
+      for (let y = 30; y < h; y += 22) {             // stone courses + staggered joints
+        g.strokeStyle = `rgba(70,45,20,${dark ? .45 : .3})`; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y + (r() - .5) * 3); g.lineTo(w, y + (r() - .5) * 3); g.stroke();
+        for (let x = r() * 40; x < w; x += 30 + r() * 30) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - .5) * 3, y + 22); g.stroke(); }
+      }
+      for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${r() < .5 ? '60,40,20' : '255,240,210'},.14)`; g.fillRect(r() * w, r() * h, 2, 2); }
+      g.restore();
+    };
+    face([A, L, F], P.stone, false); face([A, F, Rr], P.stoneDark, true);
+    for (let i = 0; i < 46; i++) { const t = r(), x = lerp(L[0], Rr[0], t), y = lerp(L[1], Rr[1], t) + 10 - r() * 50; clover(g, x, y, 14 + r() * 16, r, [P.leaf, P.leafLight, P.leafDark][i % 3]); }
+  } },
+  saucer: { w: 560, h: 230, draw(g, w, h, r) {
+    const dome = g.createRadialGradient(w * .45, h * .3, 4, w * .5, h * .45, w * .2); dome.addColorStop(0, '#f4f7f6'); dome.addColorStop(1, '#8fa3a7');
+    g.fillStyle = dome; g.beginPath(); g.ellipse(w * .5, h * .45, w * .17, h * .32, 0, Math.PI, 0); g.fill();
+    const body = g.createLinearGradient(0, h * .35, 0, h * .8); body.addColorStop(0, '#eef0f0'); body.addColorStop(.5, P.metal); body.addColorStop(1, P.metalDark);
+    g.fillStyle = body; g.beginPath(); g.ellipse(w * .5, h * .58, w * .48, h * .2, 0, 0, 7); g.fill();
+    g.fillStyle = '#5b6266'; g.beginPath(); g.ellipse(w * .5, h * .72, w * .2, h * .08, 0, 0, 7); g.fill();
+    for (let i = 0; i < 9; i++) { const a = Math.PI * (.12 + i * .095); g.fillStyle = '#f3dc8a'; g.beginPath(); g.arc(w * .5 - Math.cos(a) * w * .4, h * .6 + Math.sin(a) * h * .08, 6, 0, 7); g.fill(); }
+  } },
+  leaf: { w: 64, h: 64, draw(g, w, h, r) { clover(g, w / 2, h / 2, 26, r, P.leaf); } },
+  fieldBack: { w: 1500, h: 760, draw: field(.22) },
+  fieldFront: { w: 1600, h: 820, draw: field(0) },
+};
+
+// ---------- 4. Captions (words come from voice.js when present) ----------
+const DEMO_WORDS = [['What', .45], ['if', .75], ['the', .95], ['pyramid', 1.15], ['was', 3.55], ['never', 3.85], ['a', 4.25], ['tomb,', 4.4],
+  ['but', 6.55], ['a', 6.8], ['map', 7.0], ['home?', 7.55]];
+const WORDS = VOICE && VOICE.words.length ? VOICE.words.map(w => ({ w: w.w, t0: w.start, t1: w.end }))
+  : DEMO_WORDS.map(([w, t], i, a) => ({ w, t0: t, t1: a[i + 1] ? Math.min(a[i + 1][1], t + .7) : t + .8 }));
+const CAP = { y: 230, size: 74, maxWords: 3, font: '"Courier Prime", "Courier New", monospace' };
+// group words into on-screen chunks: ≤ maxWords, never across a sentence end or a pause
+const CHUNKS = []; WORDS.forEach((w, i) => {
+  const prev = WORDS[i - 1], c = CHUNKS[CHUNKS.length - 1];
+  if (!c || c.length >= CAP.maxWords || /[.!?…,;:]$/.test(prev.w) || w.t0 - prev.t1 > .45) CHUNKS.push([w]); else c.push(w);
+  w.chunk = CHUNKS.length - 1;
+});
+
+// ---------- 5. Scenes: an ordered list of layers per scene ----------
+// piece: {a, x, y, s, rot, ax, ay, in:{type: rise|drop|pop|swing|slideL|slideR|fade, at, dur}, idle:{bob, sway, period}}
+//        omit x/y for a cut-out to place it where it sat in the original collage
+// leaves: {leaves:{at, count, x0, x1, y0, y1, vy, life}}   fx: {fx:(g, t) => {...}}  (t = seconds since scene start)
+const SCENES = [
+  { id: 'moon', start: 0, bg: 'sky', layers: [
+    { a: 'fieldBack', x: 540, y: 1700, ay: 1, in: { type: 'rise', at: 0, dur: .5 } },
+    { a: 'moon', x: 540, y: 700, in: { type: 'drop', at: .3, dur: .9 }, idle: { bob: 6, period: 3.6 } },
+    { leaves: { at: 1.0, count: 10, x0: 80, x1: 1000, y0: 1500, y1: 1700, vy: -150, life: 3 } },
+    { a: 'fieldFront', x: 540, y: 1960, ay: 1, in: { type: 'rise', at: .12, dur: .5 } },
+  ] },
+  { id: 'pyramid', start: cue(1, 3.3), bg: 'sky', layers: [
+    { a: 'fieldBack', x: 540, y: 1720, ay: 1 },
+    { a: 'pyramid', x: 540, y: 740, in: { type: 'pop', at: .2, dur: .6 }, idle: { bob: 14, sway: .015, period: 3 } },
+    { leaves: { at: .6, count: 8, x0: 200, x1: 880, y0: 1020, y1: 1100, vy: 120, life: 2.6 } },
+    { a: 'fieldFront', x: 540, y: 1960, ay: 1 },       // the field is the continuity device: it never leaves
+  ] },
+  { id: 'saucer', start: cue(2, 6.3), bg: 'sky', layers: [
+    { a: 'fieldBack', x: 540, y: 1720, ay: 1 },
+    { fx: (g, t) => beam(g, 540, 640, 1600, E.outCubic(prog(t, .7, .5))) },
+    { leaves: { at: .9, count: 12, x0: 430, x1: 650, y0: 1500, y1: 1620, vy: -330, life: 2.8 } },
+    { a: 'saucer', x: 540, y: 560, ay: .4, in: { type: 'swing', at: .1, dur: .9 }, idle: { bob: 8, sway: .03, period: 2.2 } },
+    { a: 'fieldFront', x: 540, y: 1960, ay: 1 },
+  ] },
+];
+const TEAR = .5;   // seconds; each scene after the first opens with a torn-paper wipe centred on its start
+
+function beam(g, x, y0, y1, p) {
+  if (p <= 0) return;
+  g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = p;
+  const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,248,210,.75)'); gr.addColorStop(1, 'rgba(255,248,210,0)');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(x - 70, y0); g.lineTo(x + 70, y0); g.lineTo(x + 300, y1); g.lineTo(x - 300, y1); g.closePath(); g.fill();
+  g.restore();
+}
+
+// ---------- 6. Assets (built once) ----------
+const TEX = {}, SPR = {};
+async function makeAssets() {
+  TEX.grainTile = paperTexture(256, 256, '#808080', 3, 2);
+  const sky = canvas(W, H), g = sky.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, P.skyTop); gr.addColorStop(.55, P.sky); gr.addColorStop(1, P.skyLow);
+  g.fillStyle = gr; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'multiply'; g.globalAlpha = .55;
+  g.drawImage(paperTexture(W, H, '#d8d2c4', 11), 0, 0); TEX.sky = sky;
+  TEX.grain = [0, 1, 2, 3].map(i => paperTexture(W / 2, H / 2, '#808080', 100 + i, 1.6));
+  TEX.buf = canvas(W, H);
+  for (const [k, d] of Object.entries(DEMO)) SPR[k] = makeSprite(d.draw, d.w, d.h, k.length * 977);
+  for (const [k, m] of Object.entries(CUTOUTS)) {          // real cut-outs win over demo pieces
+    const img = await loadImg(m.src), sc = Math.max(W / m.sceneW, H / m.sceneH);   // cover-fit like the scene
+    SPR[k] = makeSprite(img, m.w * sc, m.h * sc, 1, { grain: .25 });
+    SPR[k].home = { x: (m.x + m.w / 2) * sc - (m.sceneW * sc - W) / 2, y: (m.y + m.h / 2) * sc - (m.sceneH * sc - H) / 2 };
+  }
+  for (const [k, m] of Object.entries(window.PLATES || {})) TEX[k] = await loadImg(m);   // clean background plates
+  await Promise.race([document.fonts.load(`700 ${CAP.size}px "Courier Prime"`), sleep(4000)]);
+}
+
+// ---------- 7. Timeline events (for score.mjs) ----------
+const ENTRY_HIT = { rise: ['rustle', .1], drop: ['thud', .36], pop: ['pop', .25], swing: ['swish', 0], slideL: ['swish', 0], slideR: ['swish', 0], fade: ['rustle', 0] };
+function buildEvents() {
+  const ev = [];
+  SCENES.forEach((sc, i) => {
+    if (i) ev.push({ t: +(sc.start - TEAR / 2).toFixed(3), type: 'tear' });
+    for (const L of sc.layers) {
+      if (L.in) { const [type, k] = ENTRY_HIT[L.in.type] || ['pop', 0]; ev.push({ t: +(sc.start + L.in.at + L.in.dur * k).toFixed(3), type, piece: L.a }); }
+      if (L.leaves) ev.push({ t: +(sc.start + L.leaves.at).toFixed(3), type: 'flutter', count: L.leaves.count });
+    }
+  });
+  return ev.filter(e => e.t >= 0 && e.t < DUR).sort((a, b) => a.t - b.t);
+}
+
+// ---------- 8. Drawing ----------
+function drawPiece(g, L, t, f, li) {
+  const sp = SPR[L.a]; if (!sp) throw new Error('unknown piece ' + L.a);
+  const home = sp.home || {};
+  let x = L.x ?? home.x ?? W / 2, y = L.y ?? home.y ?? H / 2, s = L.s ?? 1, rot = L.rot ?? 0, alpha = 1;
+  const ax = L.ax ?? .5, ay = L.ay ?? .5;
+  if (L.in) {
+    const p = prog(t, L.in.at, L.in.dur); if (p <= 0) return;
+    switch (L.in.type) {
+      case 'rise': y += (1 - E.outBack(p, 1.2)) * (sp.h * .9 + 200); break;
+      case 'drop': y -= (1 - E.outBounce(p)) * (y + sp.h); break;
+      case 'pop': s *= E.outBack(p, 2.6); alpha = clamp(p * 4); break;
+      case 'swing': rot += (1 - E.spring(p)) * -.7; y -= (1 - E.outCubic(p)) * 420; break;
+      case 'slideL': x -= (1 - E.outBack(p)) * W; break;
+      case 'slideR': x += (1 - E.outBack(p)) * W; break;
+      case 'fade': alpha = p; break;
+    }
+  }
+  if (L.idle) { const per = L.idle.period || 3, ph = 2 * Math.PI * t / per + li; y += Math.sin(ph) * (L.idle.bob || 0); rot += Math.sin(ph * .8) * (L.idle.sway || 0); }
+  const j = L.jitter ?? 1, fs = onTwos(f);          // the boil: a hair of drift on every new drawing
+  x += (hash(li, fs, 1) - .5) * 2.4 * j; y += (hash(li, fs, 2) - .5) * 2.4 * j; rot += (hash(li, fs, 3) - .5) * .006 * j;
+  g.save(); g.globalAlpha = alpha; g.translate(x, y); g.rotate(rot); g.scale(s, s);
+  g.drawImage(sp.c, -sp.w * ax - sp.pad, -sp.h * ay - sp.pad); g.restore();
+}
+
+function drawLeaves(g, L, t, li) {
+  const sp = SPR.leaf;
+  for (let i = 0; i < L.count; i++) {
+    const r = rng(li * 1000 + i + 1), born = L.at + r() * .8, a = t - born; if (a < 0 || a > L.life) continue;
+    const x = lerp(L.x0, L.x1, r()) + Math.sin(a * (2 + r() * 2) + r() * 6) * (30 + r() * 40), y = lerp(L.y0, L.y1, r()) + L.vy * a;
+    const fade = Math.min(1, a * 4, (L.life - a) * 2);
+    g.save(); g.globalAlpha = fade; g.translate(x, y); g.rotate(Math.sin(a * 3 + i) * 1.3);
+    g.scale(Math.cos(a * (4 + r() * 3)) * (.6 + r() * .6), .6 + r() * .6);   // flip = paper flutter
+    g.drawImage(sp.c, -sp.w / 2 - sp.pad, -sp.h / 2 - sp.pad); g.restore();
+  }
+}
+
+function drawScene(g, sc, t, f) {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  const bg = TEX[sc.bg] || TEX.sky, bw = bg.naturalWidth || bg.width, bh = bg.naturalHeight || bg.height, k = Math.max(W / bw, H / bh);
+  g.drawImage(bg, (W - bw * k) / 2, (H - bh * k) / 2, bw * k, bh * k);           // cover-fit
+  sc.layers.forEach((L, li) => {
+    if (L.a) drawPiece(g, L, t, f, li);
+    else if (L.leaves) drawLeaves(g, L.leaves, t, li);
+    else if (L.fx) { g.save(); L.fx(g, t, f); g.restore(); }
+  });
+}
+
+function tornEdge(seed, baseY) {                      // jagged edge across the frame
+  const r = rng(seed), pts = []; let lf = 0;
+  for (let x = -20; x <= W + 20; x += 14) { lf += (r() - .5) * 18; lf *= .9; pts.push([x, baseY + lf + (r() - .5) * 16 + Math.sin(x * .006 + seed) * 34]); }
+  return pts;
+}
+function tearWipe(g, next, tNext, p, f, seed) {      // new scene revealed from the bottom up under torn paper
+  const y = lerp(H + 90, -140, E.inOut(p)), pts = tornEdge(seed, y);
+  const b = TEX.buf.getContext('2d'); drawScene(b, next, tNext, f);
+  g.save(); g.beginPath(); pts.forEach(([x, yy], i) => i ? g.lineTo(x, yy) : g.moveTo(x, yy)); g.lineTo(W + 20, H + 200); g.lineTo(-20, H + 200); g.closePath();
+  g.clip(); g.drawImage(TEX.buf, 0, 0); g.restore();
+  const r = rng(seed + 7);                            // white torn fibre band on the outgoing sheet
+  g.save(); g.shadowColor = 'rgba(20,15,5,.35)'; g.shadowBlur = 16; g.shadowOffsetY = 8;
+  g.beginPath(); pts.forEach(([x, yy], i) => i ? g.lineTo(x, yy) : g.moveTo(x, yy));
+  for (let i = pts.length - 1; i >= 0; i--) g.lineTo(pts[i][0], pts[i][1] - 7 - r() * 13);
+  g.closePath(); g.fillStyle = P.paper; g.fill(); g.restore();
+}
+
+function drawCaptions(g, t) {
+  const i = WORDS.findIndex(w => t >= w.t0 && t < w.t1 + .25);
+  if (i < 0) return;
+  const chunk = CHUNKS[WORDS[i].chunk].filter(w => w.t0 <= t);
+  g.save(); g.font = `700 ${CAP.size}px ${CAP.font}`; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  const words = chunk.map(w => w.w.toUpperCase()), gap = CAP.size * .45;
+  const widths = words.map(w => g.measureText(w).width), total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1);
+  const k = Math.min(1, (W - 120) / total); g.translate(W / 2, CAP.y); g.scale(k, k);
+  let x = -total / 2;
+  chunk.forEach((w, n) => {
+    const pop = E.outBack(prog(t, w.t0, .12), 3), active = t >= w.t0 && t < w.t1 + .05 && w === WORDS[i];
+    g.save(); g.translate(x + widths[n] / 2, 0); g.scale(pop, pop);
+    g.strokeStyle = P.capEdge; g.lineWidth = 12; g.strokeText(words[n], -widths[n] / 2, 0);
+    g.fillStyle = active ? P.capActive : P.capPast; g.fillText(words[n], -widths[n] / 2, 0); g.restore();
+    x += widths[n] + gap;
+  });
+  g.restore();
+}
+
+// ---------- 9. render(f): pure ----------
+function sceneAt(t) { let i = 0; while (i + 1 < SCENES.length && t >= SCENES[i + 1].start) i++; return i; }
+function render(f) {
+  const ts = onTwos(f) / FPS, t = f / FPS;                 // ts: stepped time for animation
+  const i = sceneAt(ts), sc = SCENES[i];
+  const pv = SCENES[i - 1], nx = SCENES[i + 1];
+  if (pv && ts < sc.start + TEAR / 2) {                    // second half of the tear into this scene
+    drawScene(X, pv, ts - pv.start, f);
+    tearWipe(X, sc, ts - sc.start, prog(ts, sc.start - TEAR / 2, TEAR), f, i);
+  } else {
+    drawScene(X, sc, ts - sc.start, f);
+    if (nx && ts > nx.start - TEAR / 2) tearWipe(X, nx, ts - nx.start, prog(ts, nx.start - TEAR / 2, TEAR), f, i + 1);
+  }
+  X.setTransform(1, 0, 0, 1, 0, 0);
+  drawCaptions(X, t);                                       // captions stay smooth (not on twos)
+  X.globalCompositeOperation = 'overlay'; X.globalAlpha = .16;   // film grain, new every drawing
+  X.drawImage(TEX.grain[(onTwos(f) / 2) % 4], 0, 0, W, H);
+  X.globalCompositeOperation = 'source-over'; X.globalAlpha = 1;
+}
+
+// ---------- 10. Boot + live preview (space = pause, ←/→ = step) ----------
+(async () => {
+  await makeAssets();
+  window.EVENTS = buildEvents();
+  window.READY = true;
+  if (location.search.includes('render')) return;
+  let f = 0, playing = true, last = performance.now();
+  addEventListener('keydown', e => { if (e.code === 'Space') playing = !playing; if (e.code === 'ArrowRight') f = (f + 1) % NF; if (e.code === 'ArrowLeft') f = (f - 1 + NF) % NF; });
+  (function loop(now) {
+    if (playing && now - last >= 1000 / FPS) { f = (f + 1) % NF; last = now; }
+    render(f); document.getElementById('hud').textContent = `${(f / FPS).toFixed(2)}s · frame ${f}/${NF}`;
+    requestAnimationFrame(loop);
+  })(last);
+})();
+</script></body></html>

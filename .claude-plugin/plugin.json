@@ -1,0 +1,22 @@
+{
+  "name": "motion-studio",
+  "version": "1.0.0",
+  "description": "Claude animates every frame in code: hand-made motion pieces and surreal photo-collage explainers rendered to MP4 with a synced soundtrack. No AI video model.",
+  "author": {
+    "name": "Annderson Rey"
+  },
+  "homepage": "https://github.com/annderson8/motion-studio",
+  "repository": "https://github.com/annderson8/motion-studio",
+  "license": "MIT",
+  "keywords": [
+    "animation",
+    "video",
+    "motion-design",
+    "canvas",
+    "collage",
+    "explainer",
+    "reels",
+    "skill"
+  ],
+  "icon": ".claude-plugin/icon.png"
+}

@@ -1,0 +1,15 @@
+# private research material (third-party video/audio, not redistributable)
+reference/
+# build / render output
+node_modules
+stills/
+cutouts/
+out*.mp4
+*.events.json
+sfx.wav
+final*.mp4
+final*_sheet.png
+voice.js
+voice.json
+*.zip
+.DS_Store
