@@ -1,0 +1,21 @@
+{ "title": "Alan Turing en 30 segundos", "lang": "es", "target_seconds": 30,
+  "lines": [
+    { "text": "¿Sabías que tu teléfono nació en una hoja de papel?", "delivery": "[curious]",
+      "twist": "a vintage rotary telephone grows out of a folded sheet of graph paper like a flower, in front of the red circle",
+      "moment": "the telephone pops up out of the paper sheet and bobs", "pieces": ["telephone", "paper sheet"] },
+    { "text": "En 1936, Alan Turing imaginó una máquina hecha de una cinta y unas pocas reglas.", "delivery": "[warmly]",
+      "twist": "a 1930s man in a tweed suit whose head is a spool of paper tape; the tape unrolls across the page in a long strip of empty squares",
+      "moment": "the man rises in; the tape strip slides across", "pieces": ["tape-head man", "tape strip"] },
+    { "text": "En la guerra, sus máquinas ayudaron a descifrar Enigma, el código secreto nazi.", "delivery": "[serious]",
+      "twist": "a vintage cipher machine with rotors opens like a birdcage and its round typewriter keys fly out like a flock of birds",
+      "moment": "the machine drops in with a thud; the keys flutter up", "pieces": ["cipher machine", "flying keys"] },
+    { "text": "Después se hizo una pregunta enorme: ¿puede pensar una máquina?", "delivery": "[curious] [softly]",
+      "twist": "a classical marble bust whose head is replaced by an open clockwork of brass gears, with gears floating above it",
+      "moment": "the bust rises; the floating gears pop in one by one", "pieces": ["gear-head bust", "floating gears"] },
+    { "text": "Su país lo condenó por ser homosexual. Murió con solo 41 años.", "delivery": "[sad] [softly]",
+      "twist": "an empty vintage wooden chair with a single white lily on the seat, under a small cut-out grey rain cloud",
+      "moment": "the cloud drifts in from the side and hovers over the chair", "pieces": ["chair with lily", "rain cloud"] },
+    { "text": "Hoy, cada pantalla que tocas sigue sus reglas.", "delivery": "[warmly]",
+      "twist": "a hand from a vintage photograph touches the screen of a 1950s television set; a paper tape strip flows out of the screen and loops around the red circle",
+      "moment": "the television pops in; the hand swings in to touch it", "pieces": ["television", "hand", "tape loop"] }
+  ] }

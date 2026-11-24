@@ -3,9 +3,9 @@
 // Runs in the installed Chrome (same as render.mjs), so no Python or extra packages.
 //
 // Local fallback for Seedream Layer Decomposition (see layers-import.mjs). Run from the project root:
-//   node cutout.mjs scenes/01.png --name moon --box 210,80,660,660 [--tol 34] [--feather 1.5]
+//   node cutout.mjs scenes/01.png --name sun --box 210,80,660,660 [--tol 34] [--feather 1.5]
 //        colour-key: everything connected to the box edge that looks like the edge is removed
-//   node cutout.mjs scenes/01.png --name pharaoh --box 120,900,300,700 --mask pharaoh_nobg.png
+//   node cutout.mjs scenes/01.png --name turing --box 120,900,300,700 --mask turing_nobg.png
 //        use an alpha mask from a background remover (an image-tool MCP, rembg, Photoshop...)
 //   node cutout.mjs scenes/01.png --plate [--grow 10]
 //        fill the holes left by every piece cut from 01.png → scenes/layers/01/base.png
@@ -28,7 +28,7 @@ const name = opt('--name'), box = opt('--box'), tol = +opt('--tol', '34');
 const feather = +opt('--feather', '1.5'), shrink = +opt('--shrink', '2'), maskFile = opt('--mask'), grow = +opt('--grow', '10'), plate = bool('--plate');
 const scene = argv[0];
 if (!scene || (!plate && (!name || !box))) {
-  console.error('usage: node cutout.mjs scene.png --name moon --box x,y,w,h [--tol 34] [--mask m.png]  |  scene.png --plate'); process.exit(2);
+  console.error('usage: node cutout.mjs scene.png --name sun --box x,y,w,h [--tol 34] [--mask m.png]  |  scene.png --plate'); process.exit(2);
 }
 
 // puppeteer-core is installed in the user's project (npm i puppeteer-core), not next to this script:

@@ -2,26 +2,33 @@
 
 ## Scene anatomy (CUSTOM_SCENES)
 ```js
+// scene starts (a hair before each cue) and a helper that lands a piece on a word: at = word − start − dur·hit
+const SCENES_START = [0, cue(1) - .05, cue(2) - .05];
+const W_ = (sc, word, dur, hit) => +(word - SCENES_START[sc] - dur * hit).toFixed(2);
 const CUSTOM_SCENES = [
   { id: '01', start: 0, bg: '01', layers: [                       // bg = plate key from PLATES
-    { a: '01_clover_band', in: { type: 'rise', at: 0, dur: .5 } },  // a = key from CUTOUTS; no x/y = original position
-    { a: '01_moon', in: { type: 'drop', at: .35, dur: .9 }, idle: { bob: 6, period: 3.6 } },
+    { a: '01_circle', in: { type: 'pop', at: 0, dur: .5 }, idle: { bob: 4, period: 3.6 } },   // backdrop: pops first
+    { a: '01_lines', in: { type: 'fade', at: .25, dur: .5 } },      // a = key from CUTOUTS; no x/y = original position
+    { a: '01_stem', in: { type: 'rise', at: .25, dur: .6 } },
+    { a: '01_phone', in: { type: 'drop', at: W_(0, .88, .8, .36), dur: .8 }, idle: { bob: 5, period: 2.8 } },   // lands on "teléfono" (0.88 s)
     { leaves: { at: 1.0, count: 10, x0: 80, x1: 1000, y0: 1500, y1: 1700, vy: -150, life: 3 } },
-    { a: '01_figures', in: { type: 'rise', at: .6, dur: .55 } },
     { fx: (g, t) => { /* the scene's little moment */ } },
   ] },
-  { id: '02', start: cue(1) - .05, bg: '02', layers: [ /* ... */ ] },
+  { id: '02', start: SCENES_START[1], bg: '02', layers: [ /* ... */ ] },
 ];
 ```
 - Layers draw in list order: back to front. Keep the z order of the manifest unless a moment needs otherwise.
 - `start: cue(i) - .05` cuts a hair before the word. The torn-paper wipe (`TEAR = .5`) is centred on `start`.
 - A piece with `x/y` set is placed there (centre, scaled by `s`); without, it lands where it sat in the image (`ax/ay` = anchor, default centre).
-- Land the hero on the key word: `in.at = word.start - scene.start - dur * hit`. `hit` = .36 for `drop` (first contact), .25 for `pop`, 0 for `swing/slide`.
+- Land the hero on the key word: `in.at = word.start - scene.start - dur * hit`. `hit` = .36 for `drop` (first contact), .25 for `pop`, 1 for `slideL/slideR` (it arrives at the end of `dur`), 0 for `swing`. Word times are in `voice/voice.json`.
+- Full working example (6 scenes, every hero on its word): `examples/alan-turing/build/choreography.js` in the repository.
 
 ## Order and timing
-- Ground first (the foreground band rises), then the giant object (drops with a bounce, pops with overshoot, or swings in from above), then the people rise into place, then leaves flutter.
+- A **backdrop** (a giant flat circle or sun with the hero in front of it) pops in first, at `.05`. Never `drop` it: it would fall through the caption band, and red words over a red circle vanish. The automatic pass already treats any piece over ~18% of the frame with others in front of it as a backdrop.
+- Then ground (the foreground band rises), then the hero (drops with a bounce, pops with overshoot, or swings in from above), then the people rise into place, then small accents pop on a word of their own, then leaves flutter.
+- Sad or quiet lines: longer `dur` (0.8–1.2 s), fewer pieces moving, smaller idles.
 - Stagger entrances by 0.12–0.3 s, never all at once.
-- Scene length = its line + ~0.3 s. Hold the last scene ≥ 1 s after the last word.
+- Scene length = its line + ~0.3 s. Hold the last scene ≥ 1 s after the last word: `style.motion.hold` (default 1.2 s) sets it; 2 s gives a better screenshot frame.
 - On twos: the engine steps animation time to 12 drawings/s (`onTwos`); captions stay smooth.
 - Idle: big objects bob 5–15 px over ~3 s; light things sway (`sway: .02`); everything boils 1–2 px (`jitter`, default 1; 0 for pieces that must stay rock-still).
 
@@ -35,7 +42,7 @@ const CUSTOM_SCENES = [
 | `slideL` / `slideR` | slides in from a side | swish |
 | `fade` | opacity only | rustle |
 
-`leaves: {at, count, x0, x1, y0, y1, vy, life}` makes clover leaves flutter with a paper flip (`flutter` event). Swap the `leaf` sprite in `DEMO` for petals, stars or paper scraps that fit the style.
+`leaves: {at, count, x0, x1, y0, y1, vy, life}` makes small paper pieces (feathers in the demo) flutter with a paper flip (`flutter` event). Swap the `leaf` sprite in `DEMO` for petals, leaves, stars or paper scraps that fit the style.
 
 ## Little moments (fx layers)
 An `fx` layer is `(g, t, f) => {}` drawn in place, `t` = seconds since scene start (stepped on twos). Use `prog(t, at, dur)` and the easings in `E`. Draw sprites with `g.drawImage(SPR[key].c, …)`; read a piece's home position from `SPR[key].home`.

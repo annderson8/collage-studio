@@ -4,12 +4,12 @@
 //   base.jpeg (clean background) + layer_1.png … layer_N.png (each cropped to its piece, no positions, no names)
 // Run from the project root after downloading them into scenes/layers/<id>/:
 //
-//   node layers-import.mjs scenes/layers/01 [--min-area 0.0006]
+//   node layers-import.mjs scenes/layers/01 [--min-area 0.0003]
 //
 // It finds where each cropped layer sits by matching it against the original scene image (scenes/<id>.png),
 // works out which layer is in front where they overlap, trims, and writes scenes/manifest.{json,js}.
 // Optional scenes/layers/<id>/layers.json to name pieces or drop some (e.g. text baked into the image):
-//   {"layers": [{"file": "layer_5.png", "name": "pharaoh_left"}, {"file": "layer_9.png", "skip": true}]}
+//   {"layers": [{"file": "layer_5.png", "name": "turing"}, {"file": "layer_9.png", "skip": true}]}
 // Optional per layer: "z" (force stacking, higher = front) and "bbox": [x, y, w, h] (skip the search).
 
 import fs from 'fs';
@@ -20,9 +20,9 @@ import { readManifest, writeManifest, rel } from './manifest.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(n); if (i < 0) return d; const v = argv[i + 1]; argv.splice(i, 2); return v; };
-const minArea = +opt('--min-area', '0.0006');
+const minArea = +opt('--min-area', '0.0003');
 const dir = argv[0];
-if (!dir || !fs.existsSync(dir)) { console.error('usage: node layers-import.mjs scenes/layers/<id> [--min-area 0.0006]'); process.exit(2); }
+if (!dir || !fs.existsSync(dir)) { console.error('usage: node layers-import.mjs scenes/layers/<id> [--min-area 0.0003]'); process.exit(2); }
 
 const layersDir = path.resolve(dir), id = path.basename(layersDir);
 const scenesDir = path.dirname(path.dirname(layersDir)), root = path.dirname(scenesDir);
@@ -66,6 +66,7 @@ const br = await puppeteer.launch({ executablePath: exe, headless: true, protoco
 const pg = await br.newPage();
 pg.on('pageerror', e => { console.error('PAGE ERROR', e.message); process.exit(1); });
 await pg.goto('about:blank');
+if (process.env.DEBUG) { pg.on('console', m => console.log('  [page]', m.text())); await pg.evaluate(() => { self.DBG = 1; }); }
 
 const res = await pg.evaluate(async (baseSrc, sceneSrc, layers, minArea) => {
   const load = src => new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = src; });
@@ -78,18 +79,50 @@ const res = await pg.evaluate(async (baseSrc, sceneSrc, layers, minArea) => {
   const S = scene ? pix(scene, W, H) : null;
   const F = 6, sw = Math.ceil(W / F), sh = Math.ceil(H / F), Sc = scene ? pix(scene, sw, sh) : null;
 
+  // A flat piece (a plain red disc) matches anywhere inside a bigger area of its own colour, at any scale.
+  // At its true place its edge meets something else, so the transparent pixels just outside the piece
+  // (its ring) must NOT look like the piece. ringCost is high when they do.
+  // per-pixel error cap (another piece in front of this one costs CLIP, whatever its colour) and ring weight
+  const CLIP = 120, RING = 2;
+  function ringOf(px, w, h, r) {
+    let mr = 0, mg = 0, mb = 0, n = 0; const pts = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (px[i + 3] > 120) { mr += px[i]; mg += px[i + 1]; mb += px[i + 2]; n++; continue; }
+      if (px[i + 3] > 20) continue;
+      let edge = false;
+      for (let dy = -r; dy <= r && !edge; dy++) for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+        if (px[(yy * w + xx) * 4 + 3] > 200) { edge = true; break; }
+      }
+      if (edge) pts.push([x, y]);
+    }
+    const step = Math.max(1, Math.floor(pts.length / 600));
+    return { pts: pts.filter((_, q) => q % step === 0), mean: n ? [mr / n, mg / n, mb / n] : [0, 0, 0] };
+  }
+  function ringCost(d, w, h, ox, oy, R) {
+    const [mr, mg, mb] = R.mean; let c = 0, n = 0;
+    for (const [x, y] of R.pts) {
+      const xx = ox + x, yy = oy + y; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+      const i = (yy * w + xx) * 4; c += Math.max(0, 90 - (Math.abs(d[i] - mr) + Math.abs(d[i + 1] - mg) + Math.abs(d[i + 2] - mb))); n++;
+    }
+    return n ? c / n : 0;
+  }
+
   // best coarse position of a layer drawn at scale k (layer px → scene px), searched at 1/F resolution
   function coarse(img, k) {
     const lw = Math.max(1, Math.round(img.naturalWidth * k / F)), lh = Math.max(1, Math.round(img.naturalHeight * k / F));
     if (lw > sw || lh > sh) return { score: 1e18 };
     const small = pix(img, lw, lh).data, pts = [];
-    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const i = (y * lw + x) * 4; if (small[i + 3] > 200) pts.push([x, y, small[i], small[i + 1], small[i + 2]]); }
+    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const i = (y * lw + x) * 4; if (small[i + 3] > 120) pts.push([x, y, small[i], small[i + 1], small[i + 2]]); }
     if (!pts.length) return { score: 1e18 };
     const step = Math.max(1, Math.floor(pts.length / 1200)), sp = pts.filter((_, q) => q % step === 0);
-    let best = 1e18, bx = 0, by = 0; const d = Sc.data;
+    const R = ringOf(small, lw, lh, 1), d = Sc.data;
+    let best = 1e18, bx = 0, by = 0;
     for (let oy = 0; oy <= sh - lh; oy++) for (let ox = 0; ox <= sw - lw; ox++) {
-      let s = 0;
-      for (const [x, y, r, g, b] of sp) { const i = ((oy + y) * sw + ox + x) * 4; s += Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b); if (s >= best) break; }
+      let s = R.pts.length ? RING * ringCost(d, sw, sh, ox, oy, R) * sp.length : 0;
+      if (s >= best) continue;
+      for (const [x, y, r, g, b] of sp) { const i = ((oy + y) * sw + ox + x) * 4; s += Math.min(CLIP, Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b)); if (s >= best) break; }
       if (s < best) { best = s; bx = ox; by = oy; }
     }
     return { score: best / sp.length, bx, by };
@@ -99,31 +132,40 @@ const res = await pg.evaluate(async (baseSrc, sceneSrc, layers, minArea) => {
   function fit(img, data0) {
     const cands = [];
     for (let k = .12; k <= 1.7; k *= 1.07) cands.push({ k, ...coarse(img, k) });
-    cands.push({ k: 1, ...coarse(img, 1) });                     // unscaled is common: always try it
+    const one = { k: 1, ...coarse(img, 1) };                     // unscaled is common: always refine it
     cands.sort((a, b) => a.score - b.score);
-    const top = [];
-    for (const c of cands) { if (top.every(t => Math.abs(Math.log(t.k / c.k)) > .12)) top.push(c); if (top.length === 5) break; }
-    let best = null;
-    for (const c of top) for (const k of [c.k / 1.03, c.k, c.k * 1.03]) {
+    const top = [one];
+    for (const c of cands) { if (top.every(t => Math.abs(Math.log(t.k / c.k)) > .12)) top.push(c); if (top.length === 6) break; }
+    if (self.DBG) console.log(img.naturalWidth, top.map(t => t.k.toFixed(2) + ':' + t.score.toFixed(1)).join(' '));
+    const tried = [];
+    for (const c of top) { let cb = null; for (const k of [c.k / 1.03, c.k, c.k * 1.03]) {
       const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
       if (w > W || h > H || w < 8 || h < 8) continue;
       const id = pix(img, w, h), cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').putImageData(id, 0, 0);
       const r = locate({ width: w, height: h, data: id.data }, c.bx, c.by);
-      if (r && (!best || r.err < best.err)) best = { ...r, k };
-    }
-    return best;
+      if (self.DBG && r) console.log('   k', k.toFixed(2), 'at', r.x, r.y, 'err', r.err.toFixed(1));
+      if (r && (!cb || r.err < cb.err)) cb = { ...r, k };
+    } if (cb) tried.push(cb); }
+    if (!tried.length) return null;
+    // a piece partly hidden behind others fits a bit worse at its true size than a small copy of it tucked into
+    // a patch of its own colour. Among near-equal fits, the biggest explains the most of the scene: take it.
+    const minErr = Math.min(...tried.map(t => t.err));
+    return tried.filter(t => t.err <= minErr * 1.2 + 1).sort((a, b) => b.k - a.k || a.err - b.err)[0];
   }
 
   // where does this cropped layer sit? coarse search at 1/F scale, then a full-resolution refine
   // full-resolution refine around a coarse hit (bx, by in 1/F units)
   function locate(L, bx, by) {
     const full = L.data, fp = [];
-    for (let y = 0; y < L.height; y += 3) for (let x = 0; x < L.width; x += 3) { const i = (y * L.width + x) * 4; if (full[i + 3] > 200) fp.push([x, y, full[i], full[i + 1], full[i + 2]]); }
+    for (let y = 0; y < L.height; y += 3) for (let x = 0; x < L.width; x += 3) { const i = (y * L.width + x) * 4; if (full[i + 3] > 120) fp.push([x, y, full[i], full[i + 1], full[i + 2]]); }
+    if (!fp.length) return null;
+    const R = ringOf(full, L.width, L.height, 3);
     let fb = 1e18, fx = bx * F, fy = by * F;
     for (let oy = by * F - F - 2; oy <= by * F + F + 2; oy++) for (let ox = bx * F - F - 2; ox <= bx * F + F + 2; ox++) {
       if (ox < 0 || oy < 0 || ox + L.width > W || oy + L.height > H) continue;
-      let s = 0;
-      for (const [x, y, r, g, b] of fp) { const i = ((oy + y) * W + ox + x) * 4; s += Math.abs(S.data[i] - r) + Math.abs(S.data[i + 1] - g) + Math.abs(S.data[i + 2] - b); if (s >= fb) break; }
+      let s = R.pts.length ? RING * ringCost(S.data, W, H, ox, oy, R) * fp.length : 0;
+      if (s >= fb) continue;
+      for (const [x, y, r, g, b] of fp) { const i = ((oy + y) * W + ox + x) * 4; s += Math.min(CLIP, Math.abs(S.data[i] - r) + Math.abs(S.data[i + 1] - g) + Math.abs(S.data[i + 2] - b)); if (s >= fb) break; }
       if (s < fb) { fb = s; fx = ox; fy = oy; }
     }
     return { x: fx, y: fy, err: fb / fp.length / 3 };

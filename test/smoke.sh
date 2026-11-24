@@ -36,11 +36,21 @@ ffmpeg -loglevel error -f lavfi -i "color=c=black@0:s=1080x1920,format=rgba" -f 
 ffmpeg -loglevel error -f lavfi -i "testsrc=s=400x400" -frames:v 1 -pix_fmt rgba scenes/layers/02/layer_2.png
 ffmpeg -loglevel error -i scenes/layers/02/base.png -i scenes/layers/02/layer_2.png -i scenes/layers/02/ground.png \
   -filter_complex "[1]scale=200:200[o];[0][o]overlay=400:300[a];[a][2]overlay=0:0" -frames:v 1 scenes/02.png
-printf '{"layers":[{"file":"ground.png","name":"Clover Band"},{"file":"layer_2.png","name":"sign"}]}' > scenes/layers/02/layers.json
+printf '{"layers":[{"file":"ground.png","name":"Hill Band"},{"file":"layer_2.png","name":"sign"}]}' > scenes/layers/02/layers.json
 out=$(node "$S/collage-scenes/scripts/layers-import.mjs" scenes/layers/02)
-echo "$out" | grep -q "02_clover_band" || fail "layers-import"; ok "layers-import"
+echo "$out" | grep -q "02_hill_band" || fail "layers-import"; ok "layers-import"
 echo "$out" | grep "02_sign" | grep -Eq "at (39[7-9]|40[0-3]),(29[7-9]|30[0-3]) .*×0\.(49|50|51)" || { echo "$out"; fail "layer matching (scale + position)"; }; ok "layer matching (scale + position)"
 grep -q '"02":"scenes/layers/02/base.png"' scenes/manifest.js || fail "manifest"; ok "manifest"
+# a flat red disc half hidden behind another piece: it must land full size, not as a small patch inside its own red
+mkdir -p scenes/layers/03
+ffmpeg -loglevel error -f lavfi -i "color=c=0xe1dcc4:s=1080x1920" -frames:v 1 scenes/layers/03/base.png
+ffmpeg -loglevel error -f lavfi -i "color=c=0xd35245:s=400x400,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lte(hypot(X-200,Y-200),198),255,0)'" -frames:v 1 scenes/layers/03/layer_1.png
+ffmpeg -loglevel error -f lavfi -i "testsrc=s=220x220" -frames:v 1 -pix_fmt rgba scenes/layers/03/layer_2.png
+ffmpeg -loglevel error -i scenes/layers/03/base.png -i scenes/layers/03/layer_1.png -i scenes/layers/03/layer_2.png \
+  -filter_complex "[0][1]overlay=200:500[a];[a][2]overlay=300:600" -frames:v 1 scenes/03.png
+out=$(node "$S/collage-scenes/scripts/layers-import.mjs" scenes/layers/03)
+echo "$out" | grep "03_layer_1" | grep -Eq "at (19[8-9]|20[0-4]),(49[8-9]|50[0-4]) .*×(0\.9[7-9]|1\.0[0-3])" || { echo "$out"; fail "flat layer behind another (scale + position)"; }; ok "flat layer behind another"
+node "$S/collage-scenes/scripts/layers-check.mjs" 02 03 >/dev/null && test -s scenes/check.png || fail "layers-check"; ok "layers-check"
 
 # animate
 cp "$S/collage-animate/templates/collage.html" build/piece.html

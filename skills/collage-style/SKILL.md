@@ -26,7 +26,7 @@ ffmpeg -i style/refs/a.jpg -vf "scale=8:8:flags=area" -f rawvideo -pix_fmt rgb24
 
 ## 2 · Write style.json
 Follow the schema in the project-format reference. Decide:
-- **palette** with roles. Pick caption colours that read on the grounds: `capActive` (one strong accent, e.g. brick red), `capPast` (warm grey), `capEdge` (the paper colour, as an outline).
+- **palette** with roles. Pick caption colours that read on the grounds: `capActive` (one strong accent, e.g. brick red), `capPast` (warm grey), `capEdge` (the paper colour, as an outline). When the accent is also the continuity device's colour (red words, red circle), say in `prompt` that the top 15% of the frame stays plain ground so the two never overlap.
 - **captions.font**: a Google Fonts family that matches the references' type or era (typewriter: Courier Prime, Special Elite; editorial serif: Cormorant Garamond, EB Garamond; grotesk: Archivo Black). Size 64–84 px for 1080 wide; y ≈ 230 (top band) unless the references put text elsewhere; keep it out of the bottom 250 px.
 - **motion**: always on twos at 24 fps; scene length 3–6 s; transition (torn paper by default; ink bleed or a slide only if the references suggest it); preferred entrances.
 - **sound**: paper only, unless the references are loud (then `paper+music`).

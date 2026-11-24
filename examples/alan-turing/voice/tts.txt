@@ -1,0 +1,6 @@
+[curious] ¿Sabías que tu teléfono nació en una hoja de papel?
+[warmly] En 1936, Alan Turing imaginó una máquina hecha de una cinta y unas pocas reglas.
+[serious] En la guerra, sus máquinas ayudaron a descifrar Enigma, el código secreto nazi.
+[curious] [softly] Después se hizo una pregunta enorme: ¿puede pensar una máquina?
+[sad] [softly] Su país lo condenó por ser homosexual. Murió con solo 41 años.
+[warmly] Hoy, cada pantalla que tocas sigue sus reglas.

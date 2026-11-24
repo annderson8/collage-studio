@@ -24,21 +24,20 @@ const [W, H] = ({ '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350]
 const FPS = 24;
 const ROOT = '../';                                  // manifest paths are relative to the project root
 const VOICE = window.VOICE || null;                 // {duration, phrases[], words[]}
-const CUTOUTS = window.CUTOUTS || {};               // {"01_moon": {src,x,y,w,h,sceneW,sceneH,scene,z,name}}
+const CUTOUTS = window.CUTOUTS || {};               // {"01_circle": {src,x,y,w,h,sceneW,sceneH,scene,z,name}}
 const PLATES = window.PLATES || {};                 // {"01": "scenes/layers/01/base.png"}
 const cue = (i, fallback) => (VOICE && VOICE.phrases[i]) ? VOICE.phrases[i].start : fallback;
-const DUR = VOICE ? +(VOICE.duration + 1.2).toFixed(2) : 9.5;   // ≥1 s hold after the last word
+const HOLD = (STYLE.motion && STYLE.motion.hold) ?? 1.2;      // seconds the last frame holds after the voice ends (≥ 1)
+const DUR = VOICE ? +(VOICE.duration + HOLD).toFixed(2) : 9.5;
 const NF = Math.round(DUR * FPS);
 const cv = document.getElementById('cv'); cv.width = W; cv.height = H;
 const X = cv.getContext('2d', { willReadFrequently: true });   // required by the renderer
 
 // ---------- 1. Palette (replace with the Style Bible hexes) ----------
 const P = {
-  skyTop: '#6f9aaa', sky: '#8fb4bf', skyLow: '#b9cfcc', paper: '#f2ecdd',
-  moon: '#e9d88f', stone: '#cfa66c', stoneDark: '#8d6a3d',
-  leaf: '#7fa65a', leafDark: '#46703a', leafLight: '#bcd28f', bloom: '#f1ecd4',
-  metal: '#c9cdd0', metalDark: '#6f767b',
-  capActive: '#b4402c', capPast: '#77736b', capEdge: '#f2ecdd',
+  paper: '#ece3cb', grid: '#8fcaca', red: '#d35245', redDark: '#a8392f', ink: '#1e1d1b',
+  metal: '#cfccc5', metalDark: '#55524d',
+  capActive: '#d35245', capPast: '#1e1d1b', capEdge: '#efe9d6',
 };
 Object.assign(P, STYLE.palette || {});              // the project's style wins
 
@@ -91,76 +90,111 @@ function makeSprite(src, w, h, seed, { shadow = 0.32, grain = 0.5 } = {}) {
 }
 
 // ---------- 3. Procedural demo pieces (used when the project has no layers; leaf is always used for flutter) ----------
-function clover(g, x, y, s, r, col) {
-  const base = r() * 6.28;
-  g.fillStyle = col;
-  for (let k = 0; k < 3; k++) {
-    const a = base + k * 2.094, cx = x + Math.cos(a) * s * .55, cy = y + Math.sin(a) * s * .55;
-    g.beginPath();                                       // heart-shaped leaflet = two lobes
-    g.arc(cx + Math.cos(a + 1.57) * s * .22, cy + Math.sin(a + 1.57) * s * .22, s * .36, 0, 7);
-    g.arc(cx - Math.cos(a + 1.57) * s * .22, cy - Math.sin(a + 1.57) * s * .22, s * .36, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(30,50,20,.35)'; g.lineWidth = Math.max(1, s * .04);
-    g.beginPath(); g.moveTo(x, y); g.lineTo(cx + Math.cos(a) * s * .3, cy + Math.sin(a) * s * .3); g.stroke();
-  }
-  g.fillStyle = 'rgba(255,255,230,.18)'; g.beginPath(); g.arc(x - s * .2, y - s * .25, s * .3, 0, 7); g.fill();
+// The demo: Alan Turing's 1936 machine as a science collage: aged graph paper, a giant red circle, black-and-white
+// halftone cut-outs, thin geometry lines and small red squares and triangles.
+function speckle(g, w, h, r, n, dark, light, a = .16, size = 2) {
+  for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${r() < .5 ? dark : light},${a})`; g.fillRect(r() * w, r() * h, size, size); }
 }
-function field(haze) {
-  return (g, w, h, r) => {
-    const gr = g.createLinearGradient(0, h * .3, 0, h); gr.addColorStop(0, P.leafDark); gr.addColorStop(1, '#2f4f27');
-    g.fillStyle = gr; g.fillRect(0, h * .32, w, h);
-    const pts = []; for (let i = 0; i < 520; i++) pts.push([r() * w, h * .06 + Math.pow(r(), .75) * h * .95]);
-    pts.sort((a, b) => a[1] - b[1]);
-    for (const [x, y] of pts) {
-      const s = 16 + (y / h) * 46, c = [P.leafDark, P.leaf, P.leaf, P.leafLight][Math.floor(r() * 4)];
-      if (r() < .13) { g.fillStyle = P.bloom; for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(x + (r() - .5) * s * .7, y + (r() - .5) * s * .7, s * .2, 0, 7); g.fill(); } }
-      else clover(g, x, y, s, r, c);
-    }
-    if (haze) { g.globalCompositeOperation = 'source-atop'; g.fillStyle = `rgba(200,220,215,${haze})`; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; }
-  };
+function halftone(g, w, h, step = 7, a = .22) {          // printed-photo dot screen over what's already drawn
+  g.save(); g.globalCompositeOperation = 'source-atop';
+  for (let y = 0, row = 0; y < h + step; y += step, row++) for (let x = (row % 2) * step / 2; x < w + step; x += step) {
+    g.fillStyle = `rgba(0,0,0,${a})`; g.beginPath(); g.arc(x, y, step * .26, 0, 7); g.fill();
+    g.fillStyle = `rgba(255,255,255,${a * .45})`; g.fillRect(x + step * .3, y + step * .3, 1.2, 1.2);
+  }
+  g.restore();
+}
+function gearPath(g, cx, cy, R, teeth, depth) {
+  g.beginPath();
+  for (let k = 0; k < teeth * 4; k++) { const a = k / (teeth * 4) * Math.PI * 2, out = k % 4 === 1 || k % 4 === 2; g.lineTo(cx + Math.cos(a) * (out ? R : R - depth), cy + Math.sin(a) * (out ? R : R - depth)); }
+  g.closePath();
 }
 const DEMO = {
-  moon: { w: 720, h: 720, draw(g, w, h, r) {
-    const R = w / 2 - 4, gr = g.createRadialGradient(w * .42, h * .4, R * .1, w / 2, h / 2, R);
-    gr.addColorStop(0, '#f6eab4'); gr.addColorStop(.75, P.moon); gr.addColorStop(1, '#c4ab62');
-    g.fillStyle = gr; g.beginPath(); g.arc(w / 2, h / 2, R, 0, 7); g.fill(); g.save(); g.clip();
-    for (let i = 0; i < 10; i++) { const x = w * (.2 + r() * .6), y = h * (.2 + r() * .6), rr = R * (.12 + r() * .25), m = g.createRadialGradient(x, y, 0, x, y, rr);
-      m.addColorStop(0, 'rgba(130,110,55,.38)'); m.addColorStop(1, 'rgba(130,110,55,0)'); g.fillStyle = m; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
-    for (let i = 0; i < 80; i++) { const x = r() * w, y = r() * h, rr = 2 + Math.pow(r(), 3) * 26;
-      g.strokeStyle = 'rgba(110,90,45,.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, rr, 0, 7); g.stroke();
-      g.fillStyle = 'rgba(255,250,220,.22)'; g.beginPath(); g.arc(x - rr * .25, y - rr * .25, rr * .6, 0, 7); g.fill(); }
-    for (let i = 0; i < 4000; i++) { g.fillStyle = r() < .5 ? 'rgba(90,75,40,.16)' : 'rgba(255,255,235,.16)'; g.fillRect(r() * w, r() * h, 1.6, 1.6); }
+  circle: { w: 820, h: 820, draw(g, w, h, r) {              // the continuity device: a giant flat red circle
+    const R = w / 2 - 4;
+    g.save(); g.fillStyle = P.red; g.beginPath(); g.arc(w / 2, h / 2, R, 0, 7); g.fill(); g.clip();
+    for (let i = 0; i < 18; i++) { const x = r() * w, y = r() * h, rr = 60 + r() * 220, m = g.createRadialGradient(x, y, 0, x, y, rr);
+      m.addColorStop(0, `rgba(${r() < .5 ? '120,30,20' : '255,200,170'},.1)`); m.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = m; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+    halftone(g, w, h, 9, .07);
+    speckle(g, w, h, r, 2600, '70,20,15', '255,225,200', .3, 1.8);
     g.restore();
   } },
-  pyramid: { w: 820, h: 640, draw(g, w, h, r) {
-    const A = [w * .5, 14], L = [14, h - 70], F = [w * .6, h - 14], Rr = [w - 14, h - 90];
-    const face = (pts, col, dark) => {
-      g.save(); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.closePath(); g.fillStyle = col; g.fill(); g.clip();
-      for (let y = 30; y < h; y += 22) {             // stone courses + staggered joints
-        g.strokeStyle = `rgba(70,45,20,${dark ? .45 : .3})`; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y + (r() - .5) * 3); g.lineTo(w, y + (r() - .5) * 3); g.stroke();
-        for (let x = r() * 40; x < w; x += 30 + r() * 30) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - .5) * 3, y + 22); g.stroke(); }
-      }
-      for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${r() < .5 ? '60,40,20' : '255,240,210'},.14)`; g.fillRect(r() * w, r() * h, 2, 2); }
-      g.restore();
-    };
-    face([A, L, F], P.stone, false); face([A, F, Rr], P.stoneDark, true);
-    for (let i = 0; i < 46; i++) { const t = r(), x = lerp(L[0], Rr[0], t), y = lerp(L[1], Rr[1], t) + 10 - r() * 50; clover(g, x, y, 14 + r() * 16, r, [P.leaf, P.leafLight, P.leafDark][i % 3]); }
+  lines: { w: 1000, h: 1100, opts: { shadow: 0, grain: 0 }, draw(g, w, h, r) {   // thin hand-drawn geometry construction
+    g.save(); g.strokeStyle = P.ink; g.fillStyle = P.ink; g.lineWidth = 2.6; g.lineCap = 'round';
+    const wob = (x0, y0, x1, y1) => { g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2 + (r() - .5) * 8, (y0 + y1) / 2 + (r() - .5) * 8, x1, y1); g.stroke(); };
+    g.beginPath(); g.arc(w * .5, h * .52, w * .47, Math.PI * .78, Math.PI * 1.62); g.stroke();
+    g.beginPath(); g.arc(w * .55, h * .5, w * .41, Math.PI * 1.75, Math.PI * 2.35); g.stroke();
+    wob(w * .06, h * .26, w * .06, h * .62); wob(w * .06, h * .26, w * .3, h * .27);
+    wob(w * .86, h * .58, w * .87, h * .93); wob(w * .02, h * .8, w * .4, h * .66);
+    wob(w * .62, h * .12, w * .98, h * .3);
+    for (const [x, y] of [[.06, .26], [.06, .62], [.86, .58], [.87, .93], [.62, .12]]) { g.beginPath(); g.arc(w * x, h * y, 6, 0, 7); g.fill(); }
+    g.restore();
   } },
-  saucer: { w: 560, h: 230, draw(g, w, h, r) {
-    const dome = g.createRadialGradient(w * .45, h * .3, 4, w * .5, h * .45, w * .2); dome.addColorStop(0, '#f4f7f6'); dome.addColorStop(1, '#8fa3a7');
-    g.fillStyle = dome; g.beginPath(); g.ellipse(w * .5, h * .45, w * .17, h * .32, 0, Math.PI, 0); g.fill();
-    const body = g.createLinearGradient(0, h * .35, 0, h * .8); body.addColorStop(0, '#eef0f0'); body.addColorStop(.5, P.metal); body.addColorStop(1, P.metalDark);
-    g.fillStyle = body; g.beginPath(); g.ellipse(w * .5, h * .58, w * .48, h * .2, 0, 0, 7); g.fill();
-    g.fillStyle = '#5b6266'; g.beginPath(); g.ellipse(w * .5, h * .72, w * .2, h * .08, 0, 0, 7); g.fill();
-    for (let i = 0; i < 9; i++) { const a = Math.PI * (.12 + i * .095); g.fillStyle = '#f3dc8a'; g.beginPath(); g.arc(w * .5 - Math.cos(a) * w * .4, h * .6 + Math.sin(a) * h * .08, 6, 0, 7); g.fill(); }
+  machine: { w: 600, h: 580, draw(g, w, h, r) {           // the reading head: a vintage box with two reels, b/w halftone
+    g.save(); g.lineJoin = 'round';
+    g.strokeStyle = '#efece6'; g.lineWidth = 16; g.beginPath(); g.moveTo(150, 22); g.lineTo(450, 22); g.stroke();
+    for (const x of [150, 450]) {                            // reels
+      g.fillStyle = P.ink; g.beginPath(); g.arc(x, 120, 100, 0, 7); g.fill();
+      const rg = g.createRadialGradient(x - 30, 90, 10, x, 120, 90); rg.addColorStop(0, '#efece6'); rg.addColorStop(1, P.metal);
+      g.fillStyle = rg; g.beginPath(); g.arc(x, 120, 88, 0, 7); g.fill();
+      g.fillStyle = P.ink; for (let k = 0; k < 3; k++) { const a = k * 2.094 + .4; g.beginPath(); g.moveTo(x + Math.cos(a) * 24, 120 + Math.sin(a) * 24);
+        g.arc(x, 120, 72, a - .45, a + .45); g.closePath(); g.fill(); }
+      g.fillStyle = '#9a968f'; g.beginPath(); g.arc(x, 120, 16, 0, 7); g.fill();
+    }
+    const body = g.createLinearGradient(0, 200, 0, 520); body.addColorStop(0, '#e6e3dc'); body.addColorStop(1, P.metalDark);
+    g.fillStyle = body; g.strokeStyle = P.ink; g.lineWidth = 6;
+    g.beginPath(); g.roundRect(30, 200, 540, 310, 26); g.fill(); g.stroke();
+    g.fillStyle = '#2b2a27'; g.beginPath(); g.roundRect(70, 235, 460, 150, 14); g.fill();
+    for (const x of [160, 440]) {                            // dials
+      g.fillStyle = '#efece6'; g.beginPath(); g.arc(x, 310, 52, 0, 7); g.fill();
+      g.strokeStyle = P.ink; g.lineWidth = 3;
+      for (let k = 0; k <= 8; k++) { const a = Math.PI * (1.15 + k * .0875); g.beginPath();
+        g.moveTo(x + Math.cos(a) * 40, 316 + Math.sin(a) * 40); g.lineTo(x + Math.cos(a) * 48, 316 + Math.sin(a) * 48); g.stroke(); }
+      const a = Math.PI * (1.3 + r() * .4); g.lineWidth = 4; g.beginPath(); g.moveTo(x, 318); g.lineTo(x + Math.cos(a) * 42, 318 + Math.sin(a) * 42); g.stroke();
+    }
+    g.fillStyle = '#efece6'; g.fillRect(245, 255, 110, 110);   // the window shows the cell being read: a filled square
+    g.fillStyle = P.ink; g.fillRect(270, 280, 60, 60);
+    for (let k = 0; k < 6; k++) { const x = 105 + k * 78; g.fillStyle = k % 2 ? '#3a3834' : '#bdb9b1';
+      g.beginPath(); g.arc(x, 445, 20, 0, 7); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 3; g.stroke(); }
+    g.fillStyle = '#3a3834'; g.strokeStyle = P.ink; g.lineWidth = 5;   // the head that touches the tape
+    g.beginPath(); g.moveTo(240, 508); g.lineTo(360, 508); g.lineTo(322, 572); g.lineTo(278, 572); g.closePath(); g.fill(); g.stroke();
+    halftone(g, w, h, 7, .2);
+    speckle(g, w, h, r, 2500, '25,23,20', '255,252,240', .14);
+    g.restore();
   } },
-  leaf: { w: 64, h: 64, draw(g, w, h, r) { clover(g, w / 2, h / 2, 26, r, P.leaf); } },
-  fieldBack: { w: 1500, h: 760, draw: field(.22) },
-  fieldFront: { w: 1600, h: 820, draw: field(0) },
+  tape: { w: 1500, h: 230, draw(g, w, h, r) {               // Turing's endless tape: a paper strip of cells, filled or empty
+    g.save(); g.translate(0, 0);
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#f1ede3'); gr.addColorStop(.85, '#e4dfd2'); gr.addColorStop(1, '#cfc9ba');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, 18); g.lineTo(w, 0); g.lineTo(w, h - 30); g.lineTo(0, h - 4); g.closePath(); g.fill();
+    for (let x = 30, k = 0; x < w - 40; x += 64, k++) for (let row = 0; row < 3; row++) {
+      const y = 46 + row * 54 - x * .012, on = r() < .45;
+      g.fillStyle = on ? 'rgba(60,58,54,.85)' : 'rgba(150,146,138,.45)'; g.fillRect(x, y, 40, 34);
+    }
+    halftone(g, w, h, 7, .12);
+    speckle(g, w, h, r, 4000, '40,35,30', '255,252,240', .2);
+    g.restore();
+  } },
+  gear: { w: 230, h: 230, draw(g, w, h, r) {                // floating gears of the "thinking machine"
+    g.save(); const c = w / 2;
+    const gr = g.createRadialGradient(c - 30, c - 30, 10, c, c, c); gr.addColorStop(0, '#d9d5cc'); gr.addColorStop(1, '#4a4743');
+    g.fillStyle = gr; gearPath(g, c, c, c - 6, 14, 18); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 3; g.stroke();
+    g.globalCompositeOperation = 'destination-out';
+    for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28; g.beginPath(); g.arc(c + Math.cos(a) * 52, c + Math.sin(a) * 52, 20, 0, 7); g.fill(); }
+    g.beginPath(); g.arc(c, c, 16, 0, 7); g.fill();
+    g.globalCompositeOperation = 'source-over';
+    halftone(g, w, h, 6, .22);
+    g.restore();
+  } },
+  square: { w: 64, h: 64, opts: { shadow: .18 }, draw(g, w, h) { g.fillStyle = P.red; g.fillRect(4, 4, w - 8, h - 8); } },
+  triangle: { w: 84, h: 74, opts: { shadow: .18 }, draw(g, w, h) { g.fillStyle = P.red; g.beginPath(); g.moveTo(w / 2, 4); g.lineTo(w - 4, h - 4); g.lineTo(4, h - 4); g.closePath(); g.fill(); } },
+  leaf: { w: 40, h: 40, draw(g, w, h) {                          // a small scrap of red paper
+    g.fillStyle = P.red; g.beginPath(); g.moveTo(6, 8); g.lineTo(34, 4); g.lineTo(36, 30); g.lineTo(4, 34); g.closePath(); g.fill();
+  } },
 };
 
 // ---------- 4. Captions (words come from voice.js when present) ----------
-const DEMO_WORDS = [['What', .45], ['if', .75], ['the', .95], ['pyramid', 1.15], ['was', 3.55], ['never', 3.85], ['a', 4.25], ['tomb,', 4.4],
-  ['but', 6.55], ['a', 6.8], ['map', 7.0], ['home?', 7.55]];
+const DEMO_WORDS = [['In', .45], ['1936,', .75], ['Alan', 1.35], ['Turing', 1.7],
+  ['imagined', 3.55], ['a', 4.05], ['machine', 4.2], ['with', 4.85], ['an', 5.05], ['endless', 5.2], ['tape,', 5.7],
+  ['the', 6.6], ['idea', 6.8], ['behind', 7.15], ['every', 7.6], ['computer.', 7.9]];
 const WORDS = VOICE && VOICE.words.length ? VOICE.words.map(w => ({ w: w.w, t0: w.start, t1: w.end }))
   : DEMO_WORDS.map(([w, t], i, a) => ({ w, t0: t, t1: a[i + 1] ? Math.min(a[i + 1][1], t + .7) : t + .8 }));
 const CS = STYLE.captions || {};
@@ -179,43 +213,59 @@ const CHUNKS = []; WORDS.forEach((w, i) => {
 //     automatic pass: in the live preview, run  copy(JSON.stringify(SCENES, null, 1))  in the console.
 const CUSTOM_SCENES = null;
 
-// piece: {a, x, y, s, rot, ax, ay, in:{type: rise|drop|pop|swing|slideL|slideR|fade, at, dur}, idle:{bob, sway, period}}
+// piece: {a, x, y, s, rot, flip, ax, ay, in:{type: rise|drop|pop|swing|slideL|slideR|fade, at, dur}, idle:{bob, sway, period}}
 //        omit x/y for a cut-out to place it where it sat in the original collage
 // leaves: {leaves:{at, count, x0, x1, y0, y1, vy, life}}   fx: {fx:(g, t) => {...}}  (t = seconds since scene start)
 const DEMO_SCENES = [
-  { id: 'moon', start: 0, bg: 'sky', layers: [
-    { a: 'fieldBack', x: 540, y: 1700, ay: 1, in: { type: 'rise', at: 0, dur: .5 } },
-    { a: 'moon', x: 540, y: 700, in: { type: 'drop', at: .3, dur: .9 }, idle: { bob: 6, period: 3.6 } },
-    { leaves: { at: 1.0, count: 10, x0: 80, x1: 1000, y0: 1500, y1: 1700, vy: -150, life: 3 } },
-    { a: 'fieldFront', x: 540, y: 1960, ay: 1, in: { type: 'rise', at: .12, dur: .5 } },
+  { id: 'circle', start: 0, bg: 'grid', layers: [
+    { a: 'circle', x: 540, y: 1010, in: { type: 'pop', at: 0, dur: .5 }, idle: { bob: 4, period: 3.6 } },   // the circle never leaves
+    { a: 'lines', x: 540, y: 1020, in: { type: 'fade', at: .2, dur: .6 } },
+    { a: 'square', x: 170, y: 640, rot: .1, in: { type: 'pop', at: .55, dur: .4 } },        // red accents on "1936"
+    { a: 'triangle', x: 905, y: 1540, in: { type: 'pop', at: .7, dur: .4 } },
+    { a: 'square', x: 960, y: 560, s: .6, in: { type: 'pop', at: .85, dur: .4 } },
+    { a: 'machine', x: 540, y: 1060, in: { type: 'drop', at: 1.41, dur: .8 }, idle: { bob: 4, period: 2.4 } },   // lands on "Turing"
   ] },
-  { id: 'pyramid', start: cue(1, 3.3), bg: 'sky', layers: [
-    { a: 'fieldBack', x: 540, y: 1720, ay: 1 },
-    { a: 'pyramid', x: 540, y: 740, in: { type: 'pop', at: .2, dur: .6 }, idle: { bob: 14, sway: .015, period: 3 } },
-    { leaves: { at: .6, count: 8, x0: 200, x1: 880, y0: 1020, y1: 1100, vy: 120, life: 2.6 } },
-    { a: 'fieldFront', x: 540, y: 1960, ay: 1 },       // the field is the continuity device: it never leaves
+  { id: 'tape', start: cue(1, 3.3), bg: 'grid', layers: [
+    { a: 'circle', x: 540, y: 1010, idle: { bob: 4, period: 3.6 } },
+    { a: 'lines', x: 540, y: 1020 },
+    { a: 'square', x: 170, y: 640, rot: .1 },
+    { a: 'square', x: 960, y: 560, s: .6 },
+    { a: 'machine', x: 540, y: 1060, idle: { bob: 4, period: 2.4 } },
+    { a: 'tape', x: 540, y: 1600, rot: -.04, in: { type: 'slideL', at: 2.0, dur: .65 }, idle: { bob: 3, period: 2 } },   // arrives on "tape"
+    { a: 'triangle', x: 905, y: 1380, in: { type: 'pop', at: .8, dur: .4 } },
   ] },
-  { id: 'saucer', start: cue(2, 6.3), bg: 'sky', layers: [
-    { a: 'fieldBack', x: 540, y: 1720, ay: 1 },
-    { fx: (g, t) => beam(g, 540, 640, 1600, E.outCubic(prog(t, .7, .5))) },
-    { leaves: { at: .9, count: 12, x0: 430, x1: 650, y0: 1500, y1: 1620, vy: -330, life: 2.8 } },
-    { a: 'saucer', x: 540, y: 560, ay: .4, in: { type: 'swing', at: .1, dur: .9 }, idle: { bob: 8, sway: .03, period: 2.2 } },
-    { a: 'fieldFront', x: 540, y: 1960, ay: 1 },
+  { id: 'gears', start: cue(2, 6.3), bg: 'grid', layers: [
+    { a: 'circle', x: 540, y: 1010, idle: { bob: 4, period: 3.6 } },
+    { a: 'lines', x: 540, y: 1020 },
+    { a: 'tape', x: 540, y: 1600, rot: -.04, idle: { bob: 3, period: 2 } },
+    { a: 'machine', x: 540, y: 1060, idle: { bob: 4, period: 2.4 } },
+    { a: 'gear', x: 300, y: 560, s: .8, in: { type: 'rise', at: .3, dur: .6 }, idle: { bob: 8, sway: .1, period: 2.1 } },   // the idea floats up
+    { a: 'gear', x: 520, y: 470, in: { type: 'rise', at: .45, dur: .6 }, idle: { bob: 9, sway: .1, period: 2.5 } },
+    { a: 'gear', x: 760, y: 560, s: .7, in: { type: 'rise', at: .6, dur: .6 }, idle: { bob: 7, sway: .1, period: 2.3 } },
+    { a: 'square', x: 170, y: 640, rot: .1 },
+    { a: 'triangle', x: 905, y: 1380 },
+    { leaves: { at: 1.2, count: 10, x0: 150, x1: 930, y0: 420, y1: 600, vy: 150, life: 2.2 } },
   ] },
 ];
 const TEAR = .5;   // seconds; each scene after the first opens with a torn-paper wipe centred on its start
 
-// 5b. Automatic first pass: one scene per plate (= per script line), pieces in z order. Pieces touching the
-//     bottom rise (ground bands), the biggest floating piece drops and bobs, the rest pop in, staggered.
+// 5b. Automatic first pass: one scene per plate (= per script line), pieces in z order. A big piece with others in
+//     front of it is a backdrop (a giant circle, a sun): it pops in first and never falls through the captions.
+//     Pieces touching the bottom rise (ground bands), the biggest other floating piece drops and bobs, the rest
+//     pop in, staggered.
 function autoScenes() {
+  const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   return Object.keys(PLATES).sort().map((id, i) => {
     const pcs = Object.entries(CUTOUTS).filter(([, m]) => m.scene === id).sort((a, b) => (a[1].z ?? 0) - (b[1].z ?? 0));
-    const floating = pcs.filter(([, m]) => m.y + m.h < m.sceneH * .9);
+    const backdrop = new Set(pcs.filter(([, m]) => m.w * m.h > m.sceneW * m.sceneH * .18 &&
+      pcs.some(([, o]) => o !== m && (o.z ?? 0) > (m.z ?? 0) && o.w * o.h > m.w * m.h * .1 && overlap(m, o))).map(([k]) => k));
+    const floating = pcs.filter(([k, m]) => m.y + m.h < m.sceneH * .9 && !backdrop.has(k));
     const hero = floating.sort((a, b) => b[1].w * b[1].h - a[1].w * a[1].h)[0]?.[0];
     const layers = pcs.map(([k, m], j) => {
-      const ground = m.y + m.h >= m.sceneH * .9;
-      const type = ground ? 'rise' : k === hero ? 'drop' : 'pop';
-      return { a: k, in: { type, at: +(.05 + j * .16).toFixed(2), dur: type === 'drop' ? .9 : .55 }, idle: k === hero ? { bob: 6, period: 3.4 } : !ground ? { bob: 3, period: 2.6 } : undefined };
+      const ground = m.y + m.h >= m.sceneH * .9, back = backdrop.has(k);
+      const type = back ? 'pop' : ground ? 'rise' : k === hero ? 'drop' : 'pop';
+      const at = back ? .05 : +(.2 + j * Math.min(.16, 1.2 / pcs.length)).toFixed(2);   // all in within ~1.4 s
+      return { a: k, in: { type, at, dur: type === 'drop' ? .9 : .55 }, idle: back ? { bob: 4, period: 3.6 } : k === hero ? { bob: 6, period: 3.4 } : !ground ? { bob: 3, period: 2.6 } : undefined };
     });
     return { id, start: i ? +(cue(i, i * 3) - .05).toFixed(2) : 0, bg: id, layers };
   });
@@ -223,25 +273,21 @@ function autoScenes() {
 const SCENES = CUSTOM_SCENES || (Object.keys(PLATES).length ? autoScenes() : DEMO_SCENES);
 window.SCENES = SCENES;
 
-function beam(g, x, y0, y1, p) {
-  if (p <= 0) return;
-  g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = p;
-  const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,248,210,.75)'); gr.addColorStop(1, 'rgba(255,248,210,0)');
-  g.fillStyle = gr; g.beginPath(); g.moveTo(x - 70, y0); g.lineTo(x + 70, y0); g.lineTo(x + 300, y1); g.lineTo(x - 300, y1); g.closePath(); g.fill();
-  g.restore();
-}
-
 // ---------- 6. Assets (built once) ----------
 const TEX = {}, SPR = {};
 async function makeAssets() {
   TEX.grainTile = paperTexture(256, 256, '#808080', 3, 2);
-  const sky = canvas(W, H), g = sky.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, H);
-  gr.addColorStop(0, P.skyTop); gr.addColorStop(.55, P.sky); gr.addColorStop(1, P.skyLow);
-  g.fillStyle = gr; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'multiply'; g.globalAlpha = .55;
-  g.drawImage(paperTexture(W, H, '#d8d2c4', 11), 0, 0); TEX.sky = sky;
+  const sky = canvas(W, H), g = sky.getContext('2d'), gr0 = rng(42);        // default ground: aged graph paper
+  g.drawImage(paperTexture(W, H, P.paper, 11, .7), 0, 0);
+  for (let i = 0; i < 26; i++) { const x = gr0() * W, y = gr0() * H, rr = 6 + Math.pow(gr0(), 3) * 40, m = g.createRadialGradient(x, y, 0, x, y, rr);
+    m.addColorStop(0, 'rgba(150,95,40,.22)'); m.addColorStop(1, 'rgba(150,95,40,0)'); g.fillStyle = m; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }   // stains
+  g.strokeStyle = P.grid; g.globalAlpha = .9;
+  for (let x = 18; x < W; x += 66) { g.lineWidth = 2.2; g.beginPath(); g.moveTo(x + (gr0() - .5) * 2, 0); g.lineTo(x + (gr0() - .5) * 2, H); g.stroke(); }
+  for (let y = 24; y < H; y += 66) { g.lineWidth = 2.2; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y + (gr0() - .5) * 2); g.stroke(); }
+  g.globalAlpha = 1; TEX.sky = TEX.grid = sky;
   TEX.grain = [0, 1, 2, 3].map(i => paperTexture(W / 2, H / 2, '#808080', 100 + i, 1.6));
   TEX.buf = canvas(W, H);
-  for (const [k, d] of Object.entries(DEMO)) SPR[k] = makeSprite(d.draw, d.w, d.h, k.length * 977);
+  for (const [k, d] of Object.entries(DEMO)) SPR[k] = makeSprite(d.draw, d.w, d.h, k.length * 977, d.opts);
   for (const [k, m] of Object.entries(CUTOUTS)) {          // real cut-outs win over demo pieces
     const img = await loadImg(ROOT + m.src), sc = Math.max(W / m.sceneW, H / m.sceneH);   // cover-fit like the scene
     SPR[k] = makeSprite(img, m.w * sc, m.h * sc, 1, { grain: .25 });
@@ -290,7 +336,7 @@ function drawPiece(g, L, t, f, li) {
   if (L.idle) { const per = L.idle.period || 3, ph = 2 * Math.PI * t / per + li; y += Math.sin(ph) * (L.idle.bob || 0); rot += Math.sin(ph * .8) * (L.idle.sway || 0); }
   const j = L.jitter ?? 1, fs = onTwos(f);          // the boil: a hair of drift on every new drawing
   x += (hash(li, fs, 1) - .5) * 2.4 * j; y += (hash(li, fs, 2) - .5) * 2.4 * j; rot += (hash(li, fs, 3) - .5) * .006 * j;
-  g.save(); g.globalAlpha = alpha; g.translate(x, y); g.rotate(rot); g.scale(s, s);
+  g.save(); g.globalAlpha = alpha; g.translate(x, y); g.rotate(rot); g.scale(L.flip ? -s : s, s);
   g.drawImage(sp.c, -sp.w * ax - sp.pad, -sp.h * ay - sp.pad); g.restore();
 }
 

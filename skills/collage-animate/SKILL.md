@@ -13,7 +13,7 @@ Output: `build/piece.html`, `build/out.mp4`, `final.mp4`, `final_sheet.png`.
 Tools: this skill's `scripts/` (render, score, deliver) and `templates/collage.html` (the engine). Choreography craft: `references/choreography.md`.
 
 ## What "done" looks like
-Picture someone scrolling with the sound off. In the first second something impossible is already moving: a moon falling into a field, a pyramid popping up out of clover. Each new line of the voice brings a new sheet of paper torn into view. Pieces arrive one after another with a little weight and bounce, and words appear as they're spoken. The video ends on an image that holds long enough to screenshot. If a frame would look unfinished as a still poster, it isn't done.
+Picture someone scrolling with the sound off. In the first second something impossible is already moving: a giant red circle pops onto graph paper and a telephone drops onto a stem of folded paper. Each new line of the voice brings a new sheet of paper torn into view. Pieces arrive one after another with a little weight and bounce, and words appear as they're spoken. The video ends on an image that holds long enough to screenshot. If a frame would look unfinished as a still poster, it isn't done.
 
 ## Principles
 - **The approved images are sacred.** When a scene has fully landed it should match the image the user approved. Motion reveals the image; it doesn't redesign it.

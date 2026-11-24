@@ -64,6 +64,11 @@ const snap = t => { // snap a phrase start to the nearest speech onset if close
 };
 const weight = w => Math.max(1, w.replace(/[^\p{L}\p{N}]/gu, '').length) + 1.5;   // rough spoken length
 
+// one phrase per script line (line i = scene i); a single-paragraph script is split into sentences instead
+const scriptLines = text => {
+  const ls = text.replace(/\r/g, '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+  return ls.length > 1 ? ls : ls.flatMap(l => l.split(/(?<=[.!?…;:])\s+/)).map(s => s.trim()).filter(Boolean);
+};
 let phrases = [], words = [];
 
 // word timing inside one spoken segment: spread by length, then pin word boundaries to the micro-pauses
@@ -93,7 +98,7 @@ function wordsInSegment(line, a, b, gaps) {
 }
 
 function fromText(text, t0, t1, withPhrases) {     // spread words across [t0,t1] (or all speech) by length
-  const lines = text.replace(/\r/g, '').split(/(?<=[.!?…;:])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+  const lines = scriptLines(text);
   const all = lines.flatMap((l, li) => l.split(/\s+/).map(w => ({ w, li })));
   const tot = all.reduce((t, x) => t + weight(x.w), 0); let acc = 0;
   const map = q => t0 == null ? speechTime(q) : t0 + q * (t1 - t0);
@@ -114,7 +119,7 @@ if (trFile) {
   }
 } else if (scriptFile) {
   const text = fs.readFileSync(scriptFile, 'utf8');
-  const lines = text.replace(/\r/g, '').split(/(?<=[.!?…;:])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+  const lines = scriptLines(text);
   if (lines.length === speech.length) {            // one line per spoken segment: exact phrase sync
     const micro = detect(threshold, 0.06).speech;          // speech split at every short pause
     const gaps = micro.slice(1).map((s, k) => [micro[k][1], s[0]]);

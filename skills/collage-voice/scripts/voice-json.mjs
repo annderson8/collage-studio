@@ -29,6 +29,7 @@ const found = [];
   if (!o || typeof o !== 'object') return;
   const t = pick(o, ['word', 'text', 'token', 'punctuated_word']), s = pick(o, ['start', 'start_time', 'begin', 'startTime', 'start_ms']), e = pick(o, ['end', 'end_time', 'stop', 'endTime', 'end_ms']);
   const isWord = typeof t === 'string' && s !== undefined && e !== undefined && t.trim().split(/\s+/).length <= 2;
+  if (isWord && typeof o.type === 'string' && o.type !== 'word') return;   // ElevenLabs Scribe: skip spacing and (laughs)-style audio events
   if (isWord) { found.push({ t: t.trim(), s: +s, e: +e, ms: 'start_ms' in o }); return; }
   Object.values(o).forEach(walk);
 })(raw);
@@ -41,7 +42,7 @@ if (audio) {
 }
 const maxEnd = Math.max(...found.map(w => w.e));
 const inMs = found.some(w => w.ms) || (duration ? maxEnd > duration * 5 : maxEnd > 600);
-const words = found.filter(w => w.t && !/^[\p{P}\s]+$/u.test(w.t))
+const words = found.filter(w => w.t && !/^[\p{P}\s]+$/u.test(w.t) && !/^\[[^\]]*\]$/.test(w.t))   // drop punctuation and [audio tags]
   .map(w => ({ t: w.t, s: inMs ? w.s / 1000 : w.s, e: inMs ? w.e / 1000 : w.e })).sort((a, b) => a.s - b.s);
 if (!duration) duration = words[words.length - 1].e + 0.3;
 

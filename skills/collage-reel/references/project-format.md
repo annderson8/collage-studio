@@ -15,7 +15,7 @@ One folder per video. Each skill reads what the previous one wrote and writes on
     script.json                {"title", "lines": [{"text", "delivery", "twist", "moment", "pieces"}]}
     script.txt                 one line per scene, exactly as spoken, no tags (used for sync)
   voice/
-    tts.txt                    the text sent to the TTS model (may contain delivery tags)
+    tts.txt                    the text sent to ElevenLabs: each line with its emotion tags in front
     voice.mp3                  the voiceover
     transcript.json            raw speech-to-text output with word timestamps
     voice.json / voice.js      {duration, phrases[i] = line i, words[]}  →  window.VOICE
@@ -25,7 +25,8 @@ One folder per video. Each skill reads what the previous one wrote and writes on
     layers/01/base.png         clean background
     layers/01/<piece>.png      one transparent PNG per moving piece (trimmed)
     layers/01/raw/             original layer files as downloaded
-    manifest.json / manifest.js  →  window.CUTOUTS {"01_moon": {...}}, window.PLATES {"01": ...}
+    layers/01/check.png        the scene next to its rebuild from the layers (layers-check.mjs); scenes/check.png = all
+    manifest.json / manifest.js  →  window.CUTOUTS {"01_circle": {...}}, window.PLATES {"01": ...}
   build/
     piece.html                 the animation (copied from collage-animate/templates/collage.html)
     stills/                    look-dev stills + row.png
@@ -43,17 +44,17 @@ One folder per video. Each skill reads what the previous one wrote and writes on
 ## style.json schema
 ```json
 {
-  "name": "Surreal vintage collage",
+  "name": "Graph-paper science collage",
   "format": "9:16",
-  "palette": { "paper": "#f2ecdd", "sky": "#8fb4bf", "capActive": "#b4402c", "capPast": "#77736b", "capEdge": "#f2ecdd" },
-  "palette_roles": { "#8fb4bf": "flat sky ground", "#b4402c": "active caption word" },
-  "texture": "visible paper grain, soft drop shadows under every cut-out",
-  "captions": { "font": "Courier Prime", "weight": 700, "size": 74, "y": 230, "maxWords": 3, "uppercase": true, "edge": 12 },
-  "motion": { "fps": 24, "on_twos": true, "scene_seconds": [3, 6], "transition": "torn paper wipe", "entrances": ["rise", "drop", "pop", "swing"] },
+  "palette": { "paper": "#e1dcc4", "grid": "#9ccfcf", "red": "#d35245", "ink": "#1e1d1b", "capActive": "#d35245", "capPast": "#1e1d1b", "capEdge": "#efe9d6" },
+  "palette_roles": { "#e1dcc4": "aged graph-paper ground", "#d35245": "giant circle, small squares and triangles, active caption word" },
+  "texture": "aged cream graph paper with a teal grid; black-and-white halftone cut-outs with faint drop shadows",
+  "captions": { "font": "Space Mono", "weight": 700, "size": 72, "y": 220, "maxWords": 3, "uppercase": true, "edge": 12 },
+  "motion": { "fps": 24, "on_twos": true, "scene_seconds": [3, 6], "transition": "torn paper wipe", "entrances": ["pop", "drop", "rise", "swing"], "hold": 1.2 },
   "sound": "paper only, no music",
-  "continuity": "a band of clover with cream flowers along the bottom of every scene",
-  "prompt": "Vertical 9:16 surreal vintage photo collage. Cut-out black-and-white vintage photographs ... no text.",
-  "avoid": ["text in images", "3D render look", "busy backgrounds behind pieces"]
+  "continuity": "a giant flat red circle behind the hero, thin black geometry lines and small red squares in every scene",
+  "prompt": "Vertical 9:16 surreal vintage photo collage on aged cream graph paper ... Keep the top 15% of the frame as plain graph paper ... no text.",
+  "avoid": ["text in images", "colour photos", "3D render look", "crowded overlapping pieces"]
 }
 ```
-`palette` keys `capActive`, `capPast`, `capEdge` and every `captions` key are read by the video page; the rest guides the other skills.
+`palette` keys `capActive`, `capPast`, `capEdge`, every `captions` key and `motion.hold` (seconds the last frame holds after the voice, default 1.2) are read by the video page; the rest guides the other skills. The full file of the demo reel is in the repository at `examples/alan-turing/style/style.json`.
