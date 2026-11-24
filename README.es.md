@@ -26,8 +26,8 @@ Seis skills de Claude que convierten **una imagen de referencia y un tema** en u
 | **collage-reel** | El productor: ejecuta todo, retoma proyectos a medias y pide confirmación antes de gastar | — |
 | **collage-style** | Lee 1–3 referencias y escribe la biblia de estilo | Gratis |
 | **collage-script** | Gancho, una frase por escena, una imagen imposible y un momento animado por frase, con datos verificados | Gratis |
-| **collage-voice** | Voz con ElevenLabs v4 + transcripción con tiempos por palabra alineada al guion. También sincroniza tu propia grabación | ≈ $0.01 |
-| **collage-scenes** | Decide qué modelo hace cada escena, las genera y las separa en fondo + capas transparentes (Seedream Layer Decomposition) | ≈ $0.30–0.70 por escena |
+| **collage-voice** | Voz con ElevenLabs v4, sincronizada por sus pausas: corte exacto por frase y palabras ancladas a las respiraciones. También sincroniza tu propia grabación | ≈ $0.01 |
+| **collage-scenes** | Decide qué modelo hace cada escena, las genera y las separa en fondo + capas transparentes (Seedream Layer Decomposition) | ≈ $0.25–0.70 por escena |
 | **collage-animate** | Coreografía de cada pieza, papel rasgado, subtítulos, sonido y render a MP4 | Gratis (en tu máquina) |
 
 Todas comparten una misma [carpeta de proyecto](skills/collage-reel/references/project-format.md), así que puedes usarlas juntas o por separado.

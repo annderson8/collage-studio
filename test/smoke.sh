@@ -32,8 +32,14 @@ node "$S/collage-scenes/scripts/cutout.mjs" scenes/01.png --plate >/dev/null && 
 mkdir -p scenes/layers/02
 ffmpeg -loglevel error -f lavfi -i "color=c=0xd9a66b:s=1080x1920" -frames:v 1 scenes/layers/02/base.png
 ffmpeg -loglevel error -f lavfi -i "color=c=black@0:s=1080x1920,format=rgba" -f lavfi -i "color=c=0x46703a:s=1080x400" -filter_complex "[0][1]overlay=0:1520" -frames:v 1 scenes/layers/02/ground.png
-printf '{"base":"base.png","layers":[{"file":"ground.png","name":"Clover Band","z":1}]}' > scenes/layers/02/layers.json
-node "$S/collage-scenes/scripts/layers-import.mjs" scenes/layers/02 | grep -q "02_clover_band" || fail "layers-import"; ok "layers-import"
+# like Seedream: the piece comes back cropped and at 2× its size in the scene, with no position
+ffmpeg -loglevel error -f lavfi -i "testsrc=s=400x400" -frames:v 1 -pix_fmt rgba scenes/layers/02/layer_2.png
+ffmpeg -loglevel error -i scenes/layers/02/base.png -i scenes/layers/02/layer_2.png -i scenes/layers/02/ground.png \
+  -filter_complex "[1]scale=200:200[o];[0][o]overlay=400:300[a];[a][2]overlay=0:0" -frames:v 1 scenes/02.png
+printf '{"layers":[{"file":"ground.png","name":"Clover Band"},{"file":"layer_2.png","name":"sign"}]}' > scenes/layers/02/layers.json
+out=$(node "$S/collage-scenes/scripts/layers-import.mjs" scenes/layers/02)
+echo "$out" | grep -q "02_clover_band" || fail "layers-import"; ok "layers-import"
+echo "$out" | grep "02_sign" | grep -Eq "at (39[7-9]|40[0-3]),(29[7-9]|30[0-3]) .*×0\.(49|50|51)" || { echo "$out"; fail "layer matching (scale + position)"; }; ok "layer matching (scale + position)"
 grep -q '"02":"scenes/layers/02/base.png"' scenes/manifest.js || fail "manifest"; ok "manifest"
 
 # animate

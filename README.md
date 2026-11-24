@@ -21,8 +21,8 @@ Six Claude skills that turn **a style reference and a topic** into a finished ve
 | **collage-reel** | Producer: runs the whole pipeline, resumes half-done projects, asks before every paid step | — |
 | **collage-style** | Reads 1–3 reference images and writes a style bible: palette with roles, caption typography, motion rhythm, continuity device, a reusable image prompt | Claude (free) |
 | **collage-script** | Hook, one spoken line per scene, an *impossible image* and one animated moment per line, facts checked | Claude + web search |
-| **collage-voice** | ElevenLabs v4 voiceover, then speech-to-text with word timestamps aligned to the script, so captions are exact. Also syncs your own recording | Atlas Cloud (≈ $0.01) |
-| **collage-scenes** | Plans which model makes each scene, generates them, and splits each into a clean background + transparent layers (Seedream Layer Decomposition) | Atlas Cloud (≈ $0.30–0.70 per scene) |
+| **collage-voice** | ElevenLabs v4 voiceover, timed from its pauses: exact cut per line, words pinned to the breaths inside each line. Also syncs your own recording | Atlas Cloud (≈ $0.01) |
+| **collage-scenes** | Plans which model makes each scene, generates them, and splits each into a clean background + transparent layers (Seedream Layer Decomposition), then finds where each layer belongs | Atlas Cloud (≈ $0.25–0.70 per scene) |
 | **collage-animate** | Choreographs each piece (drop, pop, rise, swing, flutter), torn-paper wipes, word captions, paper sound design; renders the MP4 | Your machine (free) |
 
 Each skill reads and writes one shared [project folder](skills/collage-reel/references/project-format.md), so you can run them together or one at a time (only voice, only animation from your own images, etc.).
@@ -69,9 +69,9 @@ All scripts are plain Node + ffmpeg; the only package is `puppeteer-core`.
 
 | Script | Skill | What it does |
 |---|---|---|
-| `voice-json.mjs` | voice | Aligns any word-timestamped transcript (xAI, Seed ASR, Whisper…) to the script: exact cues, STT typos never reach captions |
-| `voice-sync.mjs` | voice | No-API fallback: finds pauses (auto threshold) and estimates word timing |
-| `layers-import.mjs` | scenes | Registers layer-decomposed scenes: trims layers, keeps stacking order and original positions |
+| `voice-sync.mjs` | voice | Times a voice from its pauses (auto threshold): one exact cut per script line, word boundaries pinned to micro-pauses |
+| `voice-json.mjs` | voice | Aligns any word-timestamped transcript (Whisper, Seed ASR, Scribe…) to the script: exact words, STT typos never reach captions |
+| `layers-import.mjs` | scenes | Takes the decomposition's cropped, rescaled layers and finds each one's scale, position and stacking order by matching it against the scene |
 | `cutout.mjs` | scenes | Local fallback: colour-key or mask cut-outs plus a rebuilt background plate |
 | `render.mjs` | animate | Renders the canvas page through your browser: stills, ranges, `--jobs N` parallel, environment check |
 | `score.mjs` | animate | Synthesizes torn paper, thuds, pops, swishes and leaf flutters on the exact event times of the picture |
@@ -92,9 +92,6 @@ CI runs the smoke test on Ubuntu on every push.
 - Image models drift. The scenes step shows you all scenes side by side before splitting, and regenerates only the ones that fail.
 - Layer decomposition is excellent on separated pieces and weaker on crowded ones; prompts ask for space around every piece for that reason.
 - A 40 s reel costs roughly $3–6 on Atlas Cloud (8 scenes + layers + voice); every price is shown and confirmed first.
-
-## Credits
-Inspired by the "Claude animates every piece in code" collage tutorials shared by AI motion creators in 2026. The skills, engine, scripts and demo here are original work under the MIT License.
 
 ## License
 [MIT](LICENSE) © 2026 Annderson Rey

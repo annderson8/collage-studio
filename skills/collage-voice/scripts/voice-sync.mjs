@@ -23,8 +23,8 @@ if (!audio) { console.error('usage: node voice-sync.mjs voice.mp3 [--script scri
 // 1. silences → speech segments. "auto" sets the threshold from the mean loudness and raises it
 //    until real pauses appear (needed when the voice sits on music or room noise).
 const ff = args => (spawnSync('ffmpeg', ['-hide_banner', '-i', audio, ...args, '-f', 'null', '-'], { encoding: 'utf8' }).stderr || '');
-function detect(db) {
-  const log = ff(['-af', `silencedetect=noise=${db}dB:d=${minSil}`]);
+function detect(db, d = minSil) {
+  const log = ff(['-af', `silencedetect=noise=${db}dB:d=${d}`]);
   const dm = log.match(/Duration: (\d+):(\d+):([\d.]+)/);
   if (!dm) { console.error('could not read audio duration:\n' + log.slice(-800)); process.exit(1); }
   const duration = +dm[1] * 3600 + +dm[2] * 60 + +dm[3];
@@ -66,6 +66,32 @@ const weight = w => Math.max(1, w.replace(/[^\p{L}\p{N}]/gu, '').length) + 1.5; 
 
 let phrases = [], words = [];
 
+// word timing inside one spoken segment: spread by length, then pin word boundaries to the micro-pauses
+// (breaths, commas) found inside the segment. Clean TTS voices have them, which makes captions land.
+function wordsInSegment(line, a, b, gaps) {
+  const ws = line.split(/\s+/).filter(Boolean), wt = ws.map(weight), tot = wt.reduce((x, y) => x + y, 0);
+  const q = [0]; for (const x of wt) q.push(q[q.length - 1] + x / tot);
+  const est = k => a + q[k] * (b - a), pick = new Map();
+  for (const [gs, ge] of gaps) {
+    if (gs <= a + .05 || ge >= b - .05) continue;
+    const mid = (gs + ge) / 2; let best = -1, bd = 1e9;
+    for (let k = 1; k < ws.length; k++) { const d = Math.abs(est(k) - mid); if (d < bd && !pick.has(k)) { bd = d; best = k; } }
+    if (best > 0 && bd < .4) pick.set(best, [gs, ge]);
+  }
+  const pts = [[0, a, a]]; let last = a;                  // [q, end-of-left-word, start-of-right-word]
+  for (const k of [...pick.keys()].sort((x, y) => x - y)) { const [gs, ge] = pick.get(k); if (gs > last) { pts.push([q[k], gs, ge]); last = ge; } }
+  pts.push([1, b, b]);
+  const T = (qq, side) => {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [q0, , s0] = pts[i], [q1, e1, s1] = pts[i + 1];
+      if (Math.abs(qq - q1) < 1e-9) return side === 'end' ? e1 : s1;
+      if (qq < q1) return s0 + (qq - q0) / (q1 - q0) * (e1 - s0);
+    }
+    return b;
+  };
+  return { words: ws.map((w, i) => ({ w, start: +T(q[i], 'start').toFixed(3), end: +T(q[i + 1], 'end').toFixed(3) })), anchors: pts.length - 2 };
+}
+
 function fromText(text, t0, t1, withPhrases) {     // spread words across [t0,t1] (or all speech) by length
   const lines = text.replace(/\r/g, '').split(/(?<=[.!?…;:])\s+|\n+/).map(s => s.trim()).filter(Boolean);
   const all = lines.flatMap((l, li) => l.split(/\s+/).map(w => ({ w, li })));
@@ -90,7 +116,14 @@ if (trFile) {
   const text = fs.readFileSync(scriptFile, 'utf8');
   const lines = text.replace(/\r/g, '').split(/(?<=[.!?…;:])\s+|\n+/).map(s => s.trim()).filter(Boolean);
   if (lines.length === speech.length) {            // one line per spoken segment: exact phrase sync
-    lines.forEach((l, i) => { phrases.push({ start: +speech[i][0].toFixed(3), end: +speech[i][1].toFixed(3), text: l }); words.push(...fromText(l, ...speech[i], false)); });
+    const micro = detect(threshold, 0.06).speech;          // speech split at every short pause
+    const gaps = micro.slice(1).map((s, k) => [micro[k][1], s[0]]);
+    let pinned = 0;
+    lines.forEach((l, i) => {
+      phrases.push({ start: +speech[i][0].toFixed(3), end: +speech[i][1].toFixed(3), text: l });
+      const r = wordsInSegment(l, ...speech[i], gaps); words.push(...r.words); pinned += r.anchors;
+    });
+    console.log(`  word timing: ${pinned} boundaries pinned to micro-pauses`);
   } else words = fromText(text, null, null, true);
 } else {
   phrases = speech.map(([a, b]) => ({ start: +a.toFixed(3), end: +b.toFixed(3), text: '' }));

@@ -6,26 +6,25 @@ license: MIT
 
 # Collage Animate: every frame drawn in code
 
-You are a small animation studio with great taste. From the project's layers, voice and style you deliver a **finished, share-ready MP4**: a canvas page draws each frame, the installed Chrome renders it, ffmpeg encodes it, and the soundtrack is synthesized from the same timeline.
+Your job: turn a layered collage project into a **finished MP4 that's ready to post**. A canvas page draws every frame, the Chrome already installed renders it, ffmpeg encodes it, and the sound is synthesized from the same timeline as the picture, so every hit lands where it should.
 
 Input (format in `collage-reel/references/project-format.md`): `scenes/manifest.js` (layers + plates), `voice/voice.js` (cues + words), `style/style.js` (palette + captions). Any of them may be missing: the page falls back to sensible defaults, and with none of them it plays its built-in demo.
 Output: `build/piece.html`, `build/out.mp4`, `final.mp4`, `final_sheet.png`.
 Tools: this skill's `scripts/` (render, score, deliver) and `templates/collage.html` (the engine). Choreography craft: `references/choreography.md`.
 
-## The bar
-The widely shared "Claude animated every piece in code" collage explainers set the standard. Vintage cut-out people, a giant moon, a pyramid floating in clover and a saucer beaming leaves. Each piece drops, pops or swings in on twos, a torn-paper edge wipes between scenes, captions land word by word on the voice, and the only sound is paper. What makes them work: **a hook in the first second, one idea with a payoff, one continuity device, full frames, hand-made texture, and a sound for everything that moves.** Deliver nothing below this.
+## What "done" looks like
+Picture someone scrolling with the sound off. In the first second something impossible is already moving: a moon falling into a field, a pyramid popping up out of clover. Each new line of the voice brings a new sheet of paper torn into view. Pieces arrive one after another with a little weight and bounce, and words appear as they're spoken. The video ends on an image that holds long enough to screenshot. If a frame would look unfinished as a still poster, it isn't done.
 
-## Rules (each one prevents a real failure)
-1. **Faithful to the scenes.** The approved images are the subject: when every piece has landed, each scene must look like its image.
-2. **The voice is the clock.** Scene i starts at `cue(i)`; the key piece lands on the key word of its line. Never re-time by hand when a cue exists.
-3. **Every transition is motivated**: the torn-paper wipe at every scene change, plus impacts that exist in the scene. No flashes or zooms for their own sake.
-4. **The camera is locked.** Movement comes from the pieces.
-5. **Energy curve**: hook (0–1 s: the most impossible image is already moving) → each scene adds something → a breath before the payoff line → final image held ≥ 1 s after the last word.
-6. **One continuity device** visible in every scene (from the style).
-7. **Hand-made**: on twos, 1–2 px boil, grain, overshoot and holds, staggered entrances (never all at once), secondary motion (leaves, dust).
-8. **One little moment per scene** (from `scenes.json` → `moment`), written as an `fx` layer or a custom entrance.
-9. **Frame safety**: captions inside 60 px margins, nothing important in the bottom 250 px (platform UI).
-10. **Honesty**: you can see frames but cannot hear audio. Say so when you deliver.
+## Principles
+- **The approved images are sacred.** When a scene has fully landed it should match the image the user approved. Motion reveals the image; it doesn't redesign it.
+- **Time comes from the voice.** Scene `i` opens at `cue(i)`, and each scene's main piece lands on the strongest word of its line (word times are in `voice.json`). Don't nudge cuts by eye when a cue exists.
+- **Paper physics, not camera tricks.** The frame stays still; pieces fall, pop, swing and settle. Scene changes are always the torn-paper wipe. Flashes, shakes and zooms only when something in the scene causes them.
+- **Shape the energy.** Open on the strangest image, add something new in every scene, slow down for a beat before the last line, then hold the final frame at least a second after the last word.
+- **Something stays.** The style's continuity element (a ground band, a sky, a recurring figure) appears in every scene and ties the video together.
+- **Handmade, never smooth.** Animation steps on twos; everything has a faint 1–2 px wobble and grain; entrances are staggered, overshoot and settle; leaves and dust add secondary motion.
+- **One moment per scene.** Each scene has a single small action tied to its line (`moment` in `scenes.json`): a needle swinging north, a lid dropping shut. Build it as an `fx` layer or a custom entrance.
+- **Safe zones.** Captions stay 60 px inside the edges; nothing important goes in the bottom 250 px, where the app UI sits.
+- **Say what you couldn't check.** You can look at frames but not listen; tell the user to play it with sound before posting.
 
 ## Workflow
 **a. Set up** (project root):

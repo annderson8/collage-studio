@@ -15,7 +15,7 @@ One scene per script line (`01` = line 0). For each:
 { "id": "01", "line": 0, "source": "generate", "model": "bytedance/seedream-v5.0-pro/edit",
   "prompt": "<style.prompt> + the twist of this line + continuity device + composition notes",
   "pieces": ["moon", "three figures", "clover band"], "moment": "moon drops and bobs; leaves float up",
-  "split": "bytedance/seedream-v5.0-flash/layer-decomposition" }
+  "split": "bytedance/seedream-v5.0-flash/layer-decomposition" }   // ≈ $0.22 per scene (tested)
 ```
 Choose per scene:
 - **source**: `generate`, `user` (an image the user gave, copied to `scenes/<id>.png`), or `edit` (derive from an earlier scene for continuity, e.g. same field and figures, new object).
@@ -45,15 +45,17 @@ Size: the video's aspect (9:16 → the model's closest portrait size, ≥ 1080×
    Check the look is consistent, the twist reads at thumbnail size, the pieces are separable and there's no text. Regenerate only the scenes that fail (quote again). Show the row and **wait for approval**: splitting and animating build on these.
 
 ## 3 · Split into layers
-**Layer decomposition (Atlas).** Upload `scenes/<id>.png`, call the split model (quoted in step 2), poll, then download into `scenes/layers/<id>/`: the base image as `base.png`, every layer PNG under a short name. Write `scenes/layers/<id>/layers.json` from the response:
+**Layer decomposition (Atlas).** Call the split model with `{"image": "asset://<asset_id>"}` (quoted in step 2; use the asset id from the upload so the input doesn't expire before confirmation). What comes back (tested): only files: `…_base.jpeg` (the clean background) and `…_layer_1.png … _layer_N.png`, **each cropped to its piece, often re-rendered at its own scale, with no names, order or positions**. Poll `atlas_get_prediction`: `outputs` stays empty for a few seconds while files copy to Atlas storage (`transfer_pending`); poll again, or use `temporary_outputs` (valid 24 h). Download into `scenes/layers/<id>/` as `base.jpeg` and `layer_1.png …` (keep the numbers).
+
+Then look at the layers as one contact row and write `scenes/layers/<id>/layers.json` to name the pieces you'll animate and skip what you won't (text baked into the image, specks, duplicates):
 ```json
-{ "base": "base.png", "layers": [ { "file": "moon.png", "name": "moon", "z": 3, "bbox": [x, y, w, h] } ] }
+{ "layers": [ { "file": "layer_8.png", "name": "moon" }, { "file": "layer_5.png", "name": "pharaoh_left" },
+              { "file": "layer_9.png", "skip": true } ] }
 ```
-(`z` from the response's stacking order, higher = in front; `bbox` only matters if layers come back cropped.) Then:
 ```bash
-node "<skill dir>/scripts/layers-import.mjs" scenes/layers/<id>
+node "<skill dir>/scripts/layers-import.mjs" scenes/layers/<id>      # ~20 s per scene; DEBUG=1 shows overlap decisions
 ```
-It trims full-canvas layers, skips specks and background-sized layers, and registers everything in `scenes/manifest.js`.
+It finds each layer's **scale and position** by matching it against `scenes/<id>.png`, works out which layer is in front where they overlap, trims, and registers everything in `scenes/manifest.js`. Check the printout: `err` under ~25 is a solid match; a `⚠ weak match` needs a look (or a `"bbox": [x, y, w, h]` in `layers.json`). Verify by rendering the animation's last frame next to the scene image: they should look the same. Known limit: the base sometimes keeps foreground elements (e.g. clover in front of figures' legs); one z order can't express that, and it's rarely visible in motion.
 
 **Local cut-outs (free).** For plain grounds, or without Atlas:
 ```bash

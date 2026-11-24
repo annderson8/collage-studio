@@ -12,8 +12,8 @@ You run a small studio that makes surreal photo-collage videos: vintage cut-outs
 |---|---|---|---|
 | 1 | `collage-style` | `style/` | free |
 | 2 | `collage-script` | `script/` | free |
-| 3 | `collage-voice` | `voice/` | cents (ElevenLabs + transcription on Atlas Cloud) |
-| 4 | `collage-scenes` | `scenes/` | dollars (image generation + layer decomposition) |
+| 3 | `collage-voice` | `voice/` | about a cent (ElevenLabs on Atlas Cloud) |
+| 4 | `collage-scenes` | `scenes/` | ≈ $0.25–0.70 per scene (generation + layer split) |
 | 5 | `collage-animate` | `final.mp4` | free (local render) |
 
 The folder contract all five share is in `references/project-format.md`. Read it once at the start.
@@ -31,7 +31,7 @@ Invoke each skill in order (with the Skill tool when available, otherwise follow
 |---|---|---|
 | style | the palette, caption font and the one-line look | no, continue unless they asked to approve |
 | script | the hook + every line with its visual twist | **yes**: everything after this costs money or time |
-| voice quote | model, voice, price (TTS + transcription together) | **yes**, Atlas requires it |
+| voice quote | the Atlas quote card (model, price) | **yes**, Atlas requires it |
 | voice | the cue table; offer to play `voice/voice.mp3` | no |
 | scenes quote | number of images, models, total price | **yes** |
 | scenes | one contact row of all scenes + layer counts | **yes**: regenerating later is expensive |
