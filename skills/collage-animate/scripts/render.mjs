@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// motion-studio renderer: drives the Chrome/Edge already installed on the machine (puppeteer-core)
+// collage-animate renderer: drives the Chrome/Edge already installed on the machine (puppeteer-core)
 // and pipes every frame of a pure `render(f)` canvas page into ffmpeg.
 //
 //   node render.mjs --check                                   environment report
 //   node render.mjs piece.html out.mp4 [--from s] [--to s]    render (all frames or a time range)
 //   node render.mjs piece.html out.mp4 --jobs 4               split into 4 parallel renders, then join
-//   node render.mjs piece.html --stills 0.5 3 7               PNG stills + stills/row.png contact row
+//   node render.mjs piece.html --stills 0.5 3 7               PNG stills + <page dir>/stills/row.png contact row
 //
 // Also writes <out>.events.json ({fps, nf, duration, events}) from window.EVENTS for score.mjs.
 // Browser override: CHROME_PATH=/path/to/chrome
@@ -15,6 +15,7 @@ import path from 'path';
 import os from 'os';
 import { spawn, spawnSync } from 'child_process';
 import { pathToFileURL, fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 const argv = process.argv.slice(2);
 const flag = (name, def) => { const i = argv.indexOf(name); if (i < 0) return def; const v = argv[i + 1]; argv.splice(i, 2); return v; };
@@ -44,15 +45,19 @@ function findBrowser() {
 }
 const has = bin => spawnSync(bin, ['-version'], { stdio: 'ignore' }).status === 0;
 
+// puppeteer-core is installed in the user's project (npm i puppeteer-core), not next to this script:
+// resolve it from the current folder first so the script can run straight from the skill folder.
 async function loadPuppeteer() {
-  try { return (await import('puppeteer-core')).default; }
-  catch { console.error('puppeteer-core is missing. Run:  npm i puppeteer-core   (in this folder)'); process.exit(1); }
+  for (const base of [path.join(process.cwd(), 'x.js'), fileURLToPath(import.meta.url)]) {
+    try { return (await import(pathToFileURL(createRequire(base).resolve('puppeteer-core')).href)).default; } catch {}
+  }
+  console.error('puppeteer-core is missing. In the project folder run:  npm i puppeteer-core'); process.exit(1);
 }
 
 // ---------- --check ----------
 if (bool('--check')) {
   const nodeOk = +process.versions.node.split('.')[0] >= 18;
-  let pup = true; try { await import('puppeteer-core'); } catch { pup = false; }
+  let pup = true; try { createRequire(path.join(process.cwd(), 'x.js')).resolve('puppeteer-core'); } catch { pup = false; }
   const rows = [
     ['node >= 18', nodeOk, process.versions.node],
     ['ffmpeg', has('ffmpeg'), 'brew install ffmpeg | winget install ffmpeg | apt install ffmpeg'],
@@ -99,19 +104,19 @@ async function encode(grab, fps, f0, f1, file, tag = '') {
 // ---------- stills ----------
 if (out === '--stills') {
   const { br, meta, grab } = await openPage();
-  fs.mkdirSync('stills', { recursive: true });
+  const dir = path.join(path.dirname(page), 'stills'); fs.mkdirSync(dir, { recursive: true });
   const files = [];
   for (const s of rest) {
     const f = Math.min(meta.nf - 1, Math.round(+s * meta.fps));
-    const file = `stills/s_${s}.png`; fs.writeFileSync(file, await grab(f)); files.push(file);
+    const file = path.join(dir, `s_${s}.png`); fs.writeFileSync(file, await grab(f)); files.push(file);
   }
   await br.close();
   if (files.length > 1) { // one small contact row to judge them together
     const ins = files.flatMap(f => ['-i', f]);
     const sc = files.map((_, i) => `[${i}]scale=360:-1[v${i}]`).join(';');
     const st = files.map((_, i) => `[v${i}]`).join('') + `hstack=inputs=${files.length}`;
-    spawnSync('ffmpeg', ['-y', '-loglevel', 'error', ...ins, '-filter_complex', `${sc};${st}`, 'stills/row.png'], { stdio: 'inherit' });
-    console.log('wrote', files.join(' '), '+ stills/row.png');
+    spawnSync('ffmpeg', ['-y', '-loglevel', 'error', ...ins, '-filter_complex', `${sc};${st}`, path.join(dir, 'row.png')], { stdio: 'inherit' });
+    console.log('wrote', files.join(' '), '+', path.join(dir, 'row.png'));
   } else console.log('wrote', files.join(' '));
   process.exit(0);
 }

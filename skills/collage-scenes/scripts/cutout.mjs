@@ -2,43 +2,54 @@
 // cutout.mjs: cut the pieces out of a collage image and rebuild the background behind them.
 // Runs in the installed Chrome (same as render.mjs), so no Python or extra packages.
 //
-//   node cutout.mjs scene.png --name moon --box 210,80,660,660 [--tol 34] [--feather 1.5]
+// Local fallback for Seedream Layer Decomposition (see layers-import.mjs). Run from the project root:
+//   node cutout.mjs scenes/01.png --name moon --box 210,80,660,660 [--tol 34] [--feather 1.5]
 //        colour-key: everything connected to the box edge that looks like the edge is removed
-//   node cutout.mjs scene.png --name pharaoh --box 120,900,300,700 --mask pharaoh_nobg.png
+//   node cutout.mjs scenes/01.png --name pharaoh --box 120,900,300,700 --mask pharaoh_nobg.png
 //        use an alpha mask from a background remover (an image-tool MCP, rembg, Photoshop...)
-//   node cutout.mjs scene.png --plate [--grow 10]
-//        fill the holes left by every piece cut from scene.png → cutouts/<scene>_plate.png
-//   options: --out cutouts  --shrink 2 (px eaten from the edge: removes background halos)
+//   node cutout.mjs scenes/01.png --plate [--grow 10]
+//        fill the holes left by every piece cut from 01.png → scenes/layers/01/base.png
+//   options: --shrink 2 (px eaten from the edge: removes background halos)
 //
-// Writes <out>/<name>.png (trimmed RGBA) and <out>/manifest.js, which collage.html loads:
-//   window.CUTOUTS = {name: {src, x, y, w, h, sceneW, sceneH, scene}}   window.PLATES = {key: src}
+// Writes scenes/layers/<id>/<name>.png (trimmed RGBA) and scenes/manifest.{json,js} (see manifest.mjs),
+// which collage.html loads as window.CUTOUTS (key "<id>_<name>") and window.PLATES (key "<id>").
 // A piece used without x/y in the page lands exactly where it sat in the original image.
 
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL, fileURLToPath } from 'url';
+import { createRequire } from 'module';
+import { sceneInfo, readManifest, writeManifest, rel } from './manifest.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(n); if (i < 0) return d; const v = argv[i + 1]; argv.splice(i, 2); return v; };
 const bool = n => { const i = argv.indexOf(n); if (i < 0) return false; argv.splice(i, 1); return true; };
-const out = opt('--out', 'cutouts'), name = opt('--name'), box = opt('--box'), tol = +opt('--tol', '34');
+const name = opt('--name'), box = opt('--box'), tol = +opt('--tol', '34');
 const feather = +opt('--feather', '1.5'), shrink = +opt('--shrink', '2'), maskFile = opt('--mask'), grow = +opt('--grow', '10'), plate = bool('--plate');
 const scene = argv[0];
 if (!scene || (!plate && (!name || !box))) {
   console.error('usage: node cutout.mjs scene.png --name moon --box x,y,w,h [--tol 34] [--mask m.png]  |  scene.png --plate'); process.exit(2);
 }
 
-const puppeteer = (await import('puppeteer-core').catch(() => { console.error('npm i puppeteer-core'); process.exit(1); })).default;
+// puppeteer-core is installed in the user's project (npm i puppeteer-core), not next to this script:
+// resolve it from the current folder first so the script can run straight from the skill folder.
+async function loadPuppeteer() {
+  for (const base of [path.join(process.cwd(), 'x.js'), fileURLToPath(import.meta.url)]) {
+    try { return (await import(pathToFileURL(createRequire(base).resolve('puppeteer-core')).href)).default; } catch {}
+  }
+  console.error('puppeteer-core is missing. In the project folder run:  npm i puppeteer-core'); process.exit(1);
+}
+const puppeteer = await loadPuppeteer();
 const exe = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
   '/Applications/Chromium.app/Contents/MacOS/Chromium', (process.env.LOCALAPPDATA || '') + '/Google/Chrome/Application/chrome.exe',
   'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find(p => p && fs.existsSync(p));
 if (!exe) { console.error('No Chrome/Edge found (set CHROME_PATH)'); process.exit(1); }
 
+const { scenesDir, root, id: sceneKey, layersDir: out } = sceneInfo(scene);
 fs.mkdirSync(out, { recursive: true });
-const manFile = path.join(out, 'manifest.json');
-const man = fs.existsSync(manFile) ? JSON.parse(fs.readFileSync(manFile, 'utf8')) : { cutouts: {}, plates: {} };
+const man = readManifest(scenesDir);
 const dataURL = f => `data:image/${/\.jpe?g$/i.test(f) ? 'jpeg' : /\.webp$/i.test(f) ? 'webp' : 'png'};base64,` + fs.readFileSync(f).toString('base64');
-const sceneKey = path.basename(scene).replace(/\.[^.]+$/, '');
 
 const br = await puppeteer.launch({ executablePath: exe, headless: true, args: process.env.CI ? ['--no-sandbox'] : [] });
 const pg = await br.newPage();
@@ -94,7 +105,8 @@ if (!plate) {
   if (res.empty) { console.error('nothing left after keying: lower --tol or check --box'); process.exit(1); }
   const file = path.join(out, name + '.png');
   fs.writeFileSync(file, Buffer.from(res.png.split(',')[1], 'base64'));
-  man.cutouts[name] = { src: file.split(path.sep).join('/'), x: res.x, y: res.y, w: res.w, h: res.h, sceneW: res.sceneW, sceneH: res.sceneH, scene: sceneKey };
+  const z = Object.values(man.cutouts).filter(m => m.scene === sceneKey && m.name !== name).length + 1;
+  man.cutouts[`${sceneKey}_${name}`] = { src: rel(root, file), x: res.x, y: res.y, w: res.w, h: res.h, sceneW: res.sceneW, sceneH: res.sceneH, scene: sceneKey, z, name };
   console.log(`${name}: ${res.w}×${res.h} at ${res.x},${res.y} · piece covers ${(res.kept * 100).toFixed(0)}% of the box → ${file}`);
   if (res.kept > .92) console.warn('  warning: almost nothing was keyed out. Raise --tol, tighten --box, or pass --mask.');
 } else {
@@ -124,13 +136,12 @@ if (!plate) {
     let s = 12345; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296 - .5);
     for (let i = 0; i < N; i++) if (hole[i] > .02) { const n = rnd() * 14; d[i * 4] += n; d[i * 4 + 1] += n; d[i * 4 + 2] += n; } // re-grain
     return { png: toPNG(id), todo };
-  }, dataURL(scene), pieces.map(([, m]) => ({ ...m, data: dataURL(m.src) })), grow);
-  const file = path.join(out, sceneKey + '_plate.png');
+  }, dataURL(scene), pieces.map(([, m]) => ({ ...m, data: dataURL(path.join(root, m.src)) })), grow);
+  const file = path.join(out, 'base.png');
   fs.writeFileSync(file, Buffer.from(res.png.split(',')[1], 'base64'));
-  man.plates[sceneKey] = file.split(path.sep).join('/');
+  man.plates[sceneKey] = rel(root, file);
   console.log(`plate for ${sceneKey}: filled ${res.todo} px behind ${pieces.length} piece(s) → ${file}`);
   console.log('  For big holes on detailed backgrounds, an image model "remove the <piece>" edit gives a cleaner plate.');
 }
 await br.close();
-fs.writeFileSync(manFile, JSON.stringify(man, null, 1));
-fs.writeFileSync(path.join(out, 'manifest.js'), `window.CUTOUTS = ${JSON.stringify(man.cutouts)};\nwindow.PLATES = ${JSON.stringify(man.plates)};\n`);
+writeManifest(scenesDir, man);

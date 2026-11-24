@@ -1,16 +1,18 @@
 {
-  "name": "motion-studio-skill",
-  "version": "1.0.0",
+  "name": "collage-studio",
+  "version": "2.0.0",
   "private": true,
-  "description": "Development harness for the motion-studio Claude skill (smoke tests). The skill itself lives in skills/motion-studio.",
+  "description": "Development harness for the collage-studio Claude skills (smoke tests, packaging). The skills live in skills/.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "test": "bash test/smoke.sh",
-    "zip": "cd skills && rm -f ../motion-studio.zip && zip -rq ../motion-studio.zip motion-studio && echo wrote motion-studio.zip"
+    "zip": "rm -rf dist && mkdir -p dist && cd skills && for s in */; do zip -rq ../dist/${s%/}.zip ${s%/}; done && cd .. && ls dist"
   },
   "devDependencies": {
     "puppeteer-core": "^25.0.0"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

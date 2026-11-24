@@ -3,7 +3,7 @@ reference/
 # build / render output
 node_modules
 stills/
-cutouts/
+build/stills/
 out*.mp4
 *.events.json
 sfx.wav
@@ -12,4 +12,5 @@ final*_sheet.png
 voice.js
 voice.json
 *.zip
+dist/
 .DS_Store

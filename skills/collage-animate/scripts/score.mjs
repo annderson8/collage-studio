@@ -5,7 +5,7 @@
 //   node score.mjs out.events.json sfx.wav [--style paper|paper+music] [--seed 7]
 //
 // Event types (from window.EVENTS): tear, thud, pop, swish, rustle, flutter, tick, riser, impact, chime.
-// "paper" = soft paper sounds only, no music (the collage-explainer look).
+// "paper" = soft paper sounds only, no music (the collage look).
 // "paper+music" adds a quiet detuned pad that changes chord at every tear (scene change).
 // Add new instruments as functions in SFX; every hit is driven by the same event times as the picture.
 

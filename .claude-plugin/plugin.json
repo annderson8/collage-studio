@@ -1,21 +1,23 @@
 {
-  "name": "motion-studio",
-  "version": "1.0.0",
-  "description": "Claude animates every frame in code: hand-made motion pieces and surreal photo-collage explainers rendered to MP4 with a synced soundtrack. No AI video model.",
+  "name": "collage-studio",
+  "version": "2.0.0",
+  "description": "Surreal photo-collage videos made by Claude: style from a reference, script, ElevenLabs voice, generated scenes split into layers, and every frame animated in code. No AI video model.",
   "author": {
     "name": "Annderson Rey"
   },
-  "homepage": "https://github.com/annderson8/motion-studio",
-  "repository": "https://github.com/annderson8/motion-studio",
+  "homepage": "https://github.com/annderson8/collage-studio",
+  "repository": "https://github.com/annderson8/collage-studio",
   "license": "MIT",
   "keywords": [
-    "animation",
-    "video",
-    "motion-design",
-    "canvas",
     "collage",
-    "explainer",
+    "video",
     "reels",
+    "explainer",
+    "animation",
+    "canvas",
+    "elevenlabs",
+    "atlas-cloud",
+    "seedream",
     "skill"
   ],
   "icon": ".claude-plugin/icon.png"

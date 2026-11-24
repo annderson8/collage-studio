@@ -1,62 +1,61 @@
-# Motion Studio: una skill de Claude que anima cada fotograma en código
+# Collage Studio: reels de collage surrealista animados por Claude en código
 
-**Sin modelos de vídeo con IA.** Claude dibuja cada fotograma en JavaScript sobre un canvas, lo renderiza con el Chrome que ya tienes instalado, corta las escenas sobre tu voz en off y le pone sonidos de papel que sintetiza él mismo. Obtienes un MP4 terminado, listo para publicar.
+Seis skills de Claude que convierten **una imagen de referencia y un tema** en un vídeo vertical terminado:
+- Claude escribe el guion y ElevenLabs lo locuta.
+- Se generan las escenas y se separan en capas.
+- Cada fotograma se dibuja en código: las piezas caen y aparecen a dos fotogramas, el papel rasgado cambia de escena y los subtítulos siguen la voz palabra a palabra.
 
-<p align="center"><img src="docs/demo.gif" width="240" alt="Demo: una luna cae sobre un campo de tréboles, aparece una pirámide y un platillo abduce hojas, con transiciones de papel rasgado y subtítulos palabra a palabra"></p>
-<p align="center"><sub>La demo de la plantilla: 100 % procedural. <a href="docs/demo.mp4">MP4 con sonido</a> · <a href="README.md">English</a></sub></p>
+**Sin modelos de vídeo con IA.**
 
-## Qué hace
+<p align="center"><img src="docs/demo.gif" width="240" alt="Demo de animación de collage"></p>
+<p align="center"><sub>Demo del motor de animación. <a href="docs/demo.mp4">MP4 con sonido</a> · <a href="README.md">English</a></sub></p>
 
-| Modo | Le das a Claude | Obtienes |
+## El flujo
+
+```
+ referencia ──► 1 collage-style ──► style/      paleta, tipografía, ritmo, prompt de imagen
+ tema ────────► 2 collage-script ─► script/     gancho + una frase por escena con su giro visual
+                3 collage-voice ──► voice/      voz ElevenLabs + tiempos por palabra
+                4 collage-scenes ─► scenes/     escenas generadas → fondo + una capa por pieza
+                5 collage-animate ► final.mp4   animado en código, sincronizado, sonidos de papel
+      ★ collage-reel ejecuta 1→5 y te pide permiso antes de cada gasto
+```
+
+| Skill | Qué hace | Coste |
 |---|---|---|
-| **Explicativo en collage** | Escenas de collage surrealista (o un estilo + una idea, y una herramienta de imagen las genera) y una voz en off | Cada pieza recortada y animada a dos fotogramas, transiciones de papel rasgado, subtítulos palabra a palabra sincronizados con la voz y sonido solo de papel |
-| **Pieza dibujada** | Referencias (imágenes o vídeos) + una idea | Una animación hecha a mano con el *aspecto* de las referencias (tinta, risografía, acuarela, grabado…) y banda sonora sintetizada |
+| **collage-reel** | El productor: ejecuta todo, retoma proyectos a medias y pide confirmación antes de gastar | — |
+| **collage-style** | Lee 1–3 referencias y escribe la biblia de estilo | Gratis |
+| **collage-script** | Gancho, una frase por escena, una imagen imposible y un momento animado por frase, con datos verificados | Gratis |
+| **collage-voice** | Voz con ElevenLabs v4 + transcripción con tiempos por palabra alineada al guion. También sincroniza tu propia grabación | ≈ $0.01 |
+| **collage-scenes** | Decide qué modelo hace cada escena, las genera y las separa en fondo + capas transparentes (Seedream Layer Decomposition) | ≈ $0.30–0.70 por escena |
+| **collage-animate** | Coreografía de cada pieza, papel rasgado, subtítulos, sonido y render a MP4 | Gratis (en tu máquina) |
+
+Todas comparten una misma [carpeta de proyecto](skills/collage-reel/references/project-format.md), así que puedes usarlas juntas o por separado.
 
 ## Instalación
 
-**Claude Code (plugin)**
 ```
-/plugin marketplace add annderson8/motion-studio
-/plugin install motion-studio@motion-studio
+/plugin marketplace add annderson8/collage-studio
+/plugin install collage-studio@collage-studio
 ```
+O a mano: `cp -r collage-studio/skills/* ~/.claude/skills/`.
 
-**Claude Code (manual)**
-```bash
-git clone https://github.com/annderson8/motion-studio
-cp -r motion-studio/skills/motion-studio ~/.claude/skills/
-```
-
-**Claude.ai / Claude Desktop**: descarga `motion-studio.zip` desde [Releases](../../releases) (o genéralo con `npm run zip`) y súbelo en *Configuración → Capacidades → Skills*. El render necesita Chrome y ffmpeg en la máquina, así que funciona mejor en Claude Code o Desktop con herramientas locales.
-
-**Requisitos**: Node ≥ 18, ffmpeg y Chrome / Edge / Chromium instalado. La skill instala `puppeteer-core` (pocos MB) en la carpeta del proyecto y nunca descarga un navegador.
+**Requisitos**: Node ≥ 18, ffmpeg, Chrome/Edge instalado y el conector **Atlas Cloud** (para voz e imágenes). Sin Atlas puedes grabar tu voz y traer tus propias imágenes.
 
 ## Uso
 
 ```
-/motion-studio
-Anima estas escenas en código, pieza por pieza, sincronizadas con mi voz en off.
-[adjunta las escenas + voz.mp3]
+/collage-reel
+Reel de 40 segundos: ¿y si el último faraón fue un extraterrestre? Usa el estilo de estas imágenes.
+[adjunta 1–3 referencias]
 ```
-```
-/motion-studio
-Explicativo: ¿y si el último faraón fue un extraterrestre? Genera 8 escenas verticales con el
-estilo de estas referencias y luego anímalas sincronizadas con mi voz.
-[adjunta 2 referencias + voz.mp3]   ← necesita un MCP de generación de imágenes (p. ej. Higgsfield)
-```
+Claude te enseña el estilo y el guion (lo apruebas), luego el precio de la voz y las escenas (lo apruebas), después las escenas generadas (las apruebas) y te entrega `final.mp4` con lo que se gastó.
 
-## Cómo funciona
-1. **Estilo y concepto**: Claude estudia las referencias (`STYLE.md`) y escribe el guion visual (`CONCEPT.md`), verificando los datos si el vídeo explica hechos reales.
-2. **Voz → cortes**: `voice-sync.mjs` encuentra las pausas y calcula cuándo empieza cada frase y cada palabra.
-3. **Recortes**: `cutout.mjs` separa las piezas de cada collage y reconstruye el fondo detrás.
-4. **Animación**: `piece.html` con una función `render(f)` pura; primero se aprueban fotogramas fijos y después el movimiento.
-5. **Render, sonido y entrega**: `render.mjs` (en paralelo), `score.mjs` (sonidos en cada evento) y `deliver.sh` (mezcla a -14 LUFS para redes).
-
-Los detalles de cada script están en el [README en inglés](README.md#the-scripts).
+Los guiones y la voz salen en inglés por defecto; puedes pedir otro idioma en cada vídeo.
 
 ## Límites
-- Claude ve los fotogramas pero no puede escuchar el audio: escúchalo tú antes de publicar.
-- Las piezas sobre fondos muy cargados necesitan una máscara de una herramienta de quitar fondos.
-- Con `--script` los tiempos de cada palabra se estiman dentro de su frase; con una transcripción con marcas por palabra son exactos.
+- Claude ve los fotogramas pero no oye el audio: escúchalo antes de publicar.
+- Un reel de 40 s cuesta unos $3–6 en Atlas Cloud. Cada precio se muestra y se confirma antes.
 
 ## Licencia
 [MIT](LICENSE) © 2026 Annderson Rey

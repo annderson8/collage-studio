@@ -1,6 +1,6 @@
 # Generating the scenes (collage mode)
 
-Use this when the user has a style reference and an idea but no scene images yet, and an image-generation tool is connected (e.g. a Higgsfield MCP, or any MCP with image generation). If none is connected, ask the user for scene images, or switch to drawn mode.
+Prompt craft for `collage-scenes`. The models and the generate/confirm flow are in its SKILL.md (Atlas Cloud by default; any connected image tool works the same way).
 
 ## 1 · Turn the script into scenes
 One scene per line of voiceover. For each line write: the **impossible image** (what ordinary thing does something impossible?), the pieces that will move, and the one little moment that will animate.
@@ -27,7 +27,7 @@ Match the style of the reference images exactly.
 ## 3 · Helpful extras to request
 - A **clean plate** per scene ("the same image without the [object] and people") gives a perfect background behind the pieces.
 - An **isolated version** of hard pieces ("the [statue] alone on a plain white background") keys out perfectly with `cutout.mjs`.
-- If the tool has background removal, run it on each scene and pass the result to `cutout.mjs --mask`.
+- Layer decomposition does the cut-outs; for a single hard piece, a background remover's output can go to `cutout.mjs --mask`.
 
-## 4 · Show before animating
-Show the user the scenes as one contact row and the one-line twist for each. Continue unless they asked to approve first.
+## 4 · Show before splitting
+Show the user the scenes as one contact row with the one-line twist for each, and wait for approval.

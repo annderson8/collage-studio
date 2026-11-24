@@ -1,116 +1,100 @@
-# Motion Studio: a Claude skill that animates every frame in code
+# Collage Studio: surreal collage reels, animated by Claude in code
 
-**No AI video model.** Claude draws every frame in JavaScript on a canvas, renders it with the Chrome already on your machine, cuts it on your voiceover and scores it with paper sounds it synthesizes itself. You get a finished, share-ready MP4.
+Six Claude skills that turn **a style reference and a topic** into a finished vertical video. Claude writes the script, ElevenLabs reads it, the scene images are generated and split into layers, and every frame is drawn in code: pieces drop and pop in on twos, torn paper wipes between scenes, and captions land word by word on the voice. **No AI video model.**
 
 <p align="center"><img src="docs/demo.gif" width="240" alt="Demo: a moon drops onto a clover field, a pyramid pops in, a saucer beams leaves up, with torn-paper wipes and word-by-word captions"></p>
-<p align="center"><sub>The template's built-in demo: 100% procedural, rendered by <code>render.mjs</code>. <a href="docs/demo.mp4">MP4 with sound</a> · <a href="README.es.md">Español</a></sub></p>
+<p align="center"><sub>The animation engine's built-in demo (100% procedural). <a href="docs/demo.mp4">MP4 with sound</a> · <a href="README.es.md">Español</a></sub></p>
 
-## What it makes
+## The pipeline
 
-| Mode | You give Claude | You get |
+```
+ style reference ──► 1 collage-style ──► style/       palette, caption font, motion, image prompt
+ topic ────────────► 2 collage-script ─► script/      hook + one line per scene, each with a visual twist
+                     3 collage-voice ──► voice/       ElevenLabs voiceover + word-level timestamps
+                     4 collage-scenes ─► scenes/      generated scenes → background + one layer per piece
+                     5 collage-animate ► final.mp4    every frame drawn in code, synced, paper sounds
+           ★ collage-reel runs 1→5 and stops for your OK before anything costs money
+```
+
+| Skill | What it does | Runs on |
 |---|---|---|
-| **Collage explainer** | Surreal collage scenes (or a style + an idea, and an image tool generates them) and a voiceover | Each piece cut out and animated in on twos, torn-paper wipes between scenes, word-by-word captions synced to the voice, and paper-only sound |
-| **Drawn piece** | Reference images/videos + a rough idea | A hand-made animation in the *look* of the references (ink, riso, watercolour, engraving...), with a full synthesized score |
+| **collage-reel** | Producer: runs the whole pipeline, resumes half-done projects, asks before every paid step | — |
+| **collage-style** | Reads 1–3 reference images and writes a style bible: palette with roles, caption typography, motion rhythm, continuity device, a reusable image prompt | Claude (free) |
+| **collage-script** | Hook, one spoken line per scene, an *impossible image* and one animated moment per line, facts checked | Claude + web search |
+| **collage-voice** | ElevenLabs v4 voiceover, then speech-to-text with word timestamps aligned to the script, so captions are exact. Also syncs your own recording | Atlas Cloud (≈ $0.01) |
+| **collage-scenes** | Plans which model makes each scene, generates them, and splits each into a clean background + transparent layers (Seedream Layer Decomposition) | Atlas Cloud (≈ $0.30–0.70 per scene) |
+| **collage-animate** | Choreographs each piece (drop, pop, rise, swing, flutter), torn-paper wipes, word captions, paper sound design; renders the MP4 | Your machine (free) |
 
-Formats: 9:16 reels/shorts, 1:1, 4:5, 16:9 · 24 fps on twos or 30 fps.
+Each skill reads and writes one shared [project folder](skills/collage-reel/references/project-format.md), so you can run them together or one at a time (only voice, only animation from your own images, etc.).
 
 ## Install
 
 **Claude Code (plugin)**
 ```
-/plugin marketplace add annderson8/motion-studio
-/plugin install motion-studio@motion-studio
+/plugin marketplace add annderson8/collage-studio
+/plugin install collage-studio@collage-studio
 ```
 
-**Claude Code (manual)**: copy the skill folder into your skills directory:
+**Claude Code (manual)**
 ```bash
-git clone https://github.com/annderson8/motion-studio
-cp -r motion-studio/skills/motion-studio ~/.claude/skills/
+git clone https://github.com/annderson8/collage-studio
+cp -r collage-studio/skills/* ~/.claude/skills/
 ```
 
-**Claude.ai / Claude Desktop**: download `motion-studio.zip` from the [Releases](../../releases) page, or build it with `npm run zip`, then upload it under *Settings → Capabilities → Skills*. Rendering needs a machine with Chrome and ffmpeg, so Claude Code or Desktop with local tools works best.
+**Claude.ai / Desktop**: upload the zips from [Releases](../../releases) (or `npm run zip` → `dist/`) under *Settings → Capabilities → Skills*. Rendering needs local Chrome + ffmpeg, so Claude Code or Desktop with local tools works best.
 
-**Requirements**: Node ≥ 18, ffmpeg, and an installed Chrome / Edge / Chromium. The skill installs `puppeteer-core` (a few MB) in the project folder and never downloads a browser.
+**Requirements**
+- Node ≥ 18, ffmpeg, an installed Chrome / Edge / Chromium. The skills install `puppeteer-core` (a few MB) in the project folder and never download a browser.
+- The **Atlas Cloud** connector for voice and image generation. Without it: record the voice yourself (synced from its pauses) and bring your own scene images (cut out locally).
 
 ## Use it
 
 ```
-/motion-studio
-Animate these scenes in code, piece by piece, synced to my voiceover.
-[attach scene images + voice.mp3]
+/collage-reel
+A 40-second reel: what if the last pharaoh was an alien? Use the style of these images.
+[attach 1–3 reference images]
 ```
+Claude shows you the style, then the script (you approve), then the voice and scene quotes (you approve the price), then the scenes (you approve), and delivers `final.mp4` with a contact sheet and what was spent.
+
+Or one step at a time:
 ```
-/motion-studio
-Explainer: what if the last pharaoh was an alien? Generate 8 vertical scenes in the style
-of these references, then animate them synced to my voiceover.
-[attach 2 style references + voice.mp3]   ← needs an image-generation MCP (e.g. Higgsfield)
-```
-```
-/motion-studio
-A 15 s 9:16 piece about how a seed becomes a forest, in the look of these risograph prints.
+/collage-script   Script about how bees navigate by the sun, 30 s
+/collage-voice    Generate the voice for this project with a calm narrator
+/collage-animate  Animate these scenes piece by piece, synced to voice.mp3
 ```
 
-## How it works
+## Under the hood
 
-```
-references ─► STYLE.md ─► CONCEPT.md ─┐
-voice.mp3 ──► voice-sync.mjs ─► voice.js ─┤
-scenes ─────► cutout.mjs ─► cutouts/ ─────┼─► piece.html ─► render.mjs ─► out.mp4 + events.json
-                                          │   (pure render(f))              │
-                                          └────────────────────────────── score.mjs ─► sfx.wav
-                                                                  deliver.sh ─► final.mp4 (-14 LUFS)
-```
+All scripts are plain Node + ffmpeg; the only package is `puppeteer-core`.
 
-Claude works in two quality gates: **stills first** (a contact row of key frames must look like finished illustrations) and then **motion** (a contact sheet of the render: hook, rising energy, motivated transitions, no dead stretches).
+| Script | Skill | What it does |
+|---|---|---|
+| `voice-json.mjs` | voice | Aligns any word-timestamped transcript (xAI, Seed ASR, Whisper…) to the script: exact cues, STT typos never reach captions |
+| `voice-sync.mjs` | voice | No-API fallback: finds pauses (auto threshold) and estimates word timing |
+| `layers-import.mjs` | scenes | Registers layer-decomposed scenes: trims layers, keeps stacking order and original positions |
+| `cutout.mjs` | scenes | Local fallback: colour-key or mask cut-outs plus a rebuilt background plate |
+| `render.mjs` | animate | Renders the canvas page through your browser: stills, ranges, `--jobs N` parallel, environment check |
+| `score.mjs` | animate | Synthesizes torn paper, thuds, pops, swishes and leaf flutters on the exact event times of the picture |
+| `deliver.sh` | animate | Mixes voice + effects, -14 LUFS for social, contact sheet for review |
 
-<p align="center"><img src="docs/stills.jpg" width="540" alt="Contact row of three stills from the demo"></p>
-
-## The scripts
-
-All in [`skills/motion-studio/scripts/`](skills/motion-studio/scripts). Plain Node plus ffmpeg; the only package is `puppeteer-core`.
-
-| Script | What it does |
-|---|---|
-| `render.mjs` | Renders `piece.html` to MP4 through the installed browser. `--stills` for look-dev, `--from/--to` for ranges, `--jobs N` for parallel renders, `--check` for an environment report. Exports `window.EVENTS` for the sound. |
-| `voice-sync.mjs` | Finds the pauses in a voiceover (auto threshold) and returns cue points + word timings from a script or a whisper-style transcript. |
-| `cutout.mjs` | Cuts pieces out of a collage (colour key or an external mask), remembers where they sat, and rebuilds the background plate behind them. |
-| `score.mjs` | Synthesizes a sound for every event: torn paper, thuds, pops, swishes, leaf flutters, risers, bells, plus an optional pad. Reverb, soft-clip, NaN/silence guards. |
-| `deliver.sh` | Mixes picture + effects (+ voice), normalises to -14 LUFS for social, writes a review contact sheet. |
-
-And [`templates/collage.html`](skills/motion-studio/templates/collage.html): a working collage engine with paper textures, glued-on cut-out sprites, entrances (`rise`, `drop`, `pop`, `swing`, `slide`, `fade`), idle bob and boil, flutter particles, torn-paper wipes and word-by-word captions. Open it in a browser for a live preview.
-
-## Repository layout
-
-```
-skills/motion-studio/
-  SKILL.md                      the skill: modes, rules, workflow, quality gates
-  references/
-    collage-explainer.md        collage mode: pipeline, choreography, captions, sound
-    scene-prompts.md            generating scenes with an image tool
-    recipes.md                  drawing recipes for drawn mode + extending the score
-  scripts/                      render, voice-sync, cutout, score, deliver
-  templates/collage.html        the collage engine (also the demo)
-.claude-plugin/                 plugin + marketplace manifests
-test/smoke.sh                   end-to-end test of every script (npm test)
-docs/                           demo media
-```
+And [`templates/collage.html`](skills/collage-animate/templates/collage.html), the animation engine: paper textures, glued-on cut-out sprites, entrances, idle boil, flutter particles, torn-paper wipes, captions, and an automatic first pass that animates any layered project.
 
 ## Development
-
 ```bash
-npm install && npm test     # runs every script end to end (needs Chrome + ffmpeg)
-npm run zip                 # builds motion-studio.zip for Claude.ai upload
+npm install && npm test     # end-to-end on a synthetic project (needs Chrome + ffmpeg, no API calls)
+npm run zip                 # dist/<skill>.zip for Claude.ai upload
+claude plugin validate .
 ```
-CI runs the same smoke test on Ubuntu on every push.
+CI runs the smoke test on Ubuntu on every push.
 
 ## Honest limits
-- Claude can look at frames but cannot hear audio: it tells you so, and you should listen before posting.
-- Collage pieces on busy backgrounds need a mask from a background-removal tool; big holes in detailed backgrounds look best with an image model's "remove the object" edit as the plate.
-- Word timings from `--script` are estimated inside each spoken line. Use a transcript with word timestamps for exact per-word sync.
-- A 15 s piece takes roughly 20–60 minutes of Claude's work, most of it on look-dev.
+- Claude sees frames but cannot hear audio: listen before posting.
+- Image models drift. The scenes step shows you all scenes side by side before splitting, and regenerates only the ones that fail.
+- Layer decomposition is excellent on separated pieces and weaker on crowded ones; prompts ask for space around every piece for that reason.
+- A 40 s reel costs roughly $3–6 on Atlas Cloud (8 scenes + layers + voice); every price is shown and confirmed first.
 
 ## Credits
-The collage-explainer mode was inspired by the "Claude animates every piece in code" workflow shared in short-form tutorials by AI motion creators in 2026. The engine, scripts and demo in this repository are original work released under the MIT License.
+Inspired by the "Claude animates every piece in code" collage tutorials shared by AI motion creators in 2026. The skills, engine, scripts and demo here are original work under the MIT License.
 
 ## License
 [MIT](LICENSE) © 2026 Annderson Rey

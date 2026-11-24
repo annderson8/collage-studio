@@ -1,13 +1,12 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>motion-studio · collage</title>
-<!-- Fonts load if online; the page falls back to Courier New after 4 s offline. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@700&display=block">
+<html><head><meta charset="utf-8"><title>collage-studio · piece</title>
 <style>html,body{margin:0;height:100%;background:#151413;display:grid;place-items:center}
 canvas{max-width:100vw;max-height:100vh}#hud{position:fixed;left:8px;bottom:6px;font:12px monospace;color:#999}</style>
 </head><body><canvas id="cv"></canvas><div id="hud"></div>
-<!-- Optional inputs, written by the helper scripts. Missing files are fine. -->
-<script src="voice.js" onerror="window.VOICE=null"></script>          <!-- voice-sync.mjs -->
-<script src="cutouts/manifest.js" onerror="window.CUTOUTS={}"></script><!-- cutout.py -->
+<!-- Project inputs. This page lives in <project>/build/. Missing files are fine (the demo runs instead). -->
+<script src="../style/style.js"></script>      <!-- collage-style:  window.STYLE  -->
+<script src="../voice/voice.js"></script>      <!-- collage-voice:  window.VOICE  -->
+<script src="../scenes/manifest.js"></script>  <!-- collage-scenes: window.CUTOUTS, window.PLATES -->
 <script>
 'use strict';
 /* =====================================================================
@@ -15,13 +14,18 @@ canvas{max-width:100vw;max-height:100vh}#hud{position:fixed;left:8px;bottom:6px;
    Cut-out pieces enter one by one on twos (12 drawings/s), idle with a
    stop-motion "boil", torn-paper wipes between scenes, word-by-word
    captions synced to the voiceover. render(f) is PURE: same f → same frame.
-   Edit sections 1, 4 and 5. Everything else is the engine.
+   With a project: the first pass is automatic (autoScenes). Write the real
+   choreography in CUSTOM_SCENES (section 5). Everything else is the engine.
    ===================================================================== */
 
 // ---------- 0. Format ----------
-const W = 1080, H = 1920, FPS = 24;
+const STYLE = window.STYLE || {};                   // style/style.json: palette, captions, format
+const [W, H] = ({ '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350], '16:9': [1920, 1080] })[STYLE.format || '9:16'];
+const FPS = 24;
+const ROOT = '../';                                  // manifest paths are relative to the project root
 const VOICE = window.VOICE || null;                 // {duration, phrases[], words[]}
-const CUTOUTS = window.CUTOUTS || {};               // {name: {src,x,y,w,h,sceneW,sceneH}}
+const CUTOUTS = window.CUTOUTS || {};               // {"01_moon": {src,x,y,w,h,sceneW,sceneH,scene,z,name}}
+const PLATES = window.PLATES || {};                 // {"01": "scenes/layers/01/base.png"}
 const cue = (i, fallback) => (VOICE && VOICE.phrases[i]) ? VOICE.phrases[i].start : fallback;
 const DUR = VOICE ? +(VOICE.duration + 1.2).toFixed(2) : 9.5;   // ≥1 s hold after the last word
 const NF = Math.round(DUR * FPS);
@@ -36,6 +40,7 @@ const P = {
   metal: '#c9cdd0', metalDark: '#6f767b',
   capActive: '#b4402c', capPast: '#77736b', capEdge: '#f2ecdd',
 };
+Object.assign(P, STYLE.palette || {});              // the project's style wins
 
 // ---------- 2. Engine utilities ----------
 function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -85,7 +90,7 @@ function makeSprite(src, w, h, seed, { shadow = 0.32, grain = 0.5 } = {}) {
   return { c, w, h, pad };
 }
 
-// ---------- 3. Procedural demo pieces (replace with real cut-outs from cutout.py) ----------
+// ---------- 3. Procedural demo pieces (used when the project has no layers; leaf is always used for flutter) ----------
 function clover(g, x, y, s, r, col) {
   const base = r() * 6.28;
   g.fillStyle = col;
@@ -158,7 +163,10 @@ const DEMO_WORDS = [['What', .45], ['if', .75], ['the', .95], ['pyramid', 1.15],
   ['but', 6.55], ['a', 6.8], ['map', 7.0], ['home?', 7.55]];
 const WORDS = VOICE && VOICE.words.length ? VOICE.words.map(w => ({ w: w.w, t0: w.start, t1: w.end }))
   : DEMO_WORDS.map(([w, t], i, a) => ({ w, t0: t, t1: a[i + 1] ? Math.min(a[i + 1][1], t + .7) : t + .8 }));
-const CAP = { y: 230, size: 74, maxWords: 3, font: '"Courier Prime", "Courier New", monospace' };
+const CS = STYLE.captions || {};
+const CAP = { y: CS.y ?? 230, size: CS.size ?? 74, maxWords: CS.maxWords ?? 3, weight: CS.weight ?? 700,
+  upper: CS.uppercase ?? true, family: CS.font || 'Courier Prime', edge: CS.edge ?? 12 };
+CAP.font = `"${CAP.family}", "Courier New", monospace`;
 // group words into on-screen chunks: ≤ maxWords, never across a sentence end or a pause
 const CHUNKS = []; WORDS.forEach((w, i) => {
   const prev = WORDS[i - 1], c = CHUNKS[CHUNKS.length - 1];
@@ -167,10 +175,14 @@ const CHUNKS = []; WORDS.forEach((w, i) => {
 });
 
 // ---------- 5. Scenes: an ordered list of layers per scene ----------
+// 5a. YOUR CHOREOGRAPHY: replace null with a scene list (same shape as DEMO_SCENES below). Start from the
+//     automatic pass: in the live preview, run  copy(JSON.stringify(SCENES, null, 1))  in the console.
+const CUSTOM_SCENES = null;
+
 // piece: {a, x, y, s, rot, ax, ay, in:{type: rise|drop|pop|swing|slideL|slideR|fade, at, dur}, idle:{bob, sway, period}}
 //        omit x/y for a cut-out to place it where it sat in the original collage
 // leaves: {leaves:{at, count, x0, x1, y0, y1, vy, life}}   fx: {fx:(g, t) => {...}}  (t = seconds since scene start)
-const SCENES = [
+const DEMO_SCENES = [
   { id: 'moon', start: 0, bg: 'sky', layers: [
     { a: 'fieldBack', x: 540, y: 1700, ay: 1, in: { type: 'rise', at: 0, dur: .5 } },
     { a: 'moon', x: 540, y: 700, in: { type: 'drop', at: .3, dur: .9 }, idle: { bob: 6, period: 3.6 } },
@@ -193,6 +205,24 @@ const SCENES = [
 ];
 const TEAR = .5;   // seconds; each scene after the first opens with a torn-paper wipe centred on its start
 
+// 5b. Automatic first pass: one scene per plate (= per script line), pieces in z order. Pieces touching the
+//     bottom rise (ground bands), the biggest floating piece drops and bobs, the rest pop in, staggered.
+function autoScenes() {
+  return Object.keys(PLATES).sort().map((id, i) => {
+    const pcs = Object.entries(CUTOUTS).filter(([, m]) => m.scene === id).sort((a, b) => (a[1].z ?? 0) - (b[1].z ?? 0));
+    const floating = pcs.filter(([, m]) => m.y + m.h < m.sceneH * .9);
+    const hero = floating.sort((a, b) => b[1].w * b[1].h - a[1].w * a[1].h)[0]?.[0];
+    const layers = pcs.map(([k, m], j) => {
+      const ground = m.y + m.h >= m.sceneH * .9;
+      const type = ground ? 'rise' : k === hero ? 'drop' : 'pop';
+      return { a: k, in: { type, at: +(.05 + j * .16).toFixed(2), dur: type === 'drop' ? .9 : .55 }, idle: k === hero ? { bob: 6, period: 3.4 } : !ground ? { bob: 3, period: 2.6 } : undefined };
+    });
+    return { id, start: i ? +(cue(i, i * 3) - .05).toFixed(2) : 0, bg: id, layers };
+  });
+}
+const SCENES = CUSTOM_SCENES || (Object.keys(PLATES).length ? autoScenes() : DEMO_SCENES);
+window.SCENES = SCENES;
+
 function beam(g, x, y0, y1, p) {
   if (p <= 0) return;
   g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = p;
@@ -213,12 +243,16 @@ async function makeAssets() {
   TEX.buf = canvas(W, H);
   for (const [k, d] of Object.entries(DEMO)) SPR[k] = makeSprite(d.draw, d.w, d.h, k.length * 977);
   for (const [k, m] of Object.entries(CUTOUTS)) {          // real cut-outs win over demo pieces
-    const img = await loadImg(m.src), sc = Math.max(W / m.sceneW, H / m.sceneH);   // cover-fit like the scene
+    const img = await loadImg(ROOT + m.src), sc = Math.max(W / m.sceneW, H / m.sceneH);   // cover-fit like the scene
     SPR[k] = makeSprite(img, m.w * sc, m.h * sc, 1, { grain: .25 });
     SPR[k].home = { x: (m.x + m.w / 2) * sc - (m.sceneW * sc - W) / 2, y: (m.y + m.h / 2) * sc - (m.sceneH * sc - H) / 2 };
   }
-  for (const [k, m] of Object.entries(window.PLATES || {})) TEX[k] = await loadImg(m);   // clean background plates
-  await Promise.race([document.fonts.load(`700 ${CAP.size}px "Courier Prime"`), sleep(4000)]);
+  for (const [k, m] of Object.entries(PLATES)) TEX[k] = await loadImg(ROOT + m);   // clean background plates
+  const link = document.createElement('link'); link.rel = 'stylesheet';            // caption font (Google Fonts)
+  link.href = `https://fonts.googleapis.com/css2?family=${CAP.family.replace(/ /g, '+')}:wght@${CAP.weight}&display=block`;
+  const linked = new Promise(r => { link.onload = r; link.onerror = r; }); document.head.appendChild(link);
+  await Promise.race([linked, sleep(4000)]);                                        // offline: falls back after 4 s
+  await Promise.race([document.fonts.load(`${CAP.weight} ${CAP.size}px "${CAP.family}"`), sleep(4000)]);
 }
 
 // ---------- 7. Timeline events (for score.mjs) ----------
@@ -304,15 +338,15 @@ function drawCaptions(g, t) {
   const i = WORDS.findIndex(w => t >= w.t0 && t < w.t1 + .25);
   if (i < 0) return;
   const chunk = CHUNKS[WORDS[i].chunk].filter(w => w.t0 <= t);
-  g.save(); g.font = `700 ${CAP.size}px ${CAP.font}`; g.textBaseline = 'middle'; g.lineJoin = 'round';
-  const words = chunk.map(w => w.w.toUpperCase()), gap = CAP.size * .45;
+  g.save(); g.font = `${CAP.weight} ${CAP.size}px ${CAP.font}`; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  const words = chunk.map(w => CAP.upper ? w.w.toUpperCase() : w.w), gap = CAP.size * .45;
   const widths = words.map(w => g.measureText(w).width), total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1);
   const k = Math.min(1, (W - 120) / total); g.translate(W / 2, CAP.y); g.scale(k, k);
   let x = -total / 2;
   chunk.forEach((w, n) => {
     const pop = E.outBack(prog(t, w.t0, .12), 3), active = t >= w.t0 && t < w.t1 + .05 && w === WORDS[i];
     g.save(); g.translate(x + widths[n] / 2, 0); g.scale(pop, pop);
-    g.strokeStyle = P.capEdge; g.lineWidth = 12; g.strokeText(words[n], -widths[n] / 2, 0);
+    g.strokeStyle = P.capEdge; g.lineWidth = CAP.edge; g.strokeText(words[n], -widths[n] / 2, 0);
     g.fillStyle = active ? P.capActive : P.capPast; g.fillText(words[n], -widths[n] / 2, 0); g.restore();
     x += widths[n] + gap;
   });

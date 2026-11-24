@@ -1,15 +1,15 @@
 {
-  "name": "motion-studio",
-  "description": "Claude animates every frame in code: motion pieces and surreal photo-collage explainers rendered to MP4, no AI video model.",
+  "name": "collage-studio",
+  "description": "Surreal photo-collage videos made by Claude: style from a reference, script, ElevenLabs voice, generated scenes split into layers, and every frame animated in code. No AI video model.",
   "owner": {
     "name": "Annderson Rey"
   },
   "plugins": [
     {
-      "name": "motion-studio",
+      "name": "collage-studio",
       "source": "./",
-      "description": "Claude animates every frame in code: hand-made motion pieces and surreal photo-collage explainers rendered to MP4 with a synced soundtrack.",
-      "version": "1.0.0"
+      "description": "Surreal photo-collage videos made by Claude: style from a reference, script, ElevenLabs voice, generated scenes split into layers, and every frame animated in code. No AI video model.",
+      "version": "2.0.0"
     }
   ]
 }
