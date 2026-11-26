@@ -42,7 +42,9 @@ git clone https://github.com/annderson8/collage-studio
 cp -r collage-studio/skills/* ~/.claude/skills/
 ```
 
-**Claude.ai / Desktop**: upload the zips from [Releases](../../releases) (or `npm run zip` → `dist/`) under *Settings → Capabilities → Skills*. Rendering needs local Chrome + ffmpeg, so Claude Code or Desktop with local tools works best.
+**Claude.ai / Desktop chat**: paste the `/plugin marketplace add …` line in the chat, or upload the zips from [Releases](../../releases) under *Settings → Capabilities → Skills*. It works, but the code runs in a cloud sandbox with closed network, so you'll be asked to allow each domain it downloads from (Atlas, ElevenLabs, npm).
+
+**Recommended: Claude Code in an empty folder.** Create a folder, open it in VS Code (or the terminal, or the *Code* tab of the desktop app) and run `/collage-reel` there. Everything runs on your machine, the project lands in that folder, and on the first run the producer offers to write a `.claude/settings.local.json` that allows the Atlas/ElevenLabs tools and `node`/`ffmpeg`/`curl`, so you're not asked to approve every image. Spending still waits for your OK.
 
 **Requirements**
 - Node ≥ 18, ffmpeg, an installed Chrome / Edge / Chromium. The skills install `puppeteer-core` (a few MB) in the project folder and never download a browser.
@@ -97,7 +99,8 @@ CI runs the smoke test on Ubuntu on every push.
 - Claude sees frames but cannot hear audio: listen before posting.
 - Image models drift. The scenes step shows you all scenes side by side before splitting, and regenerates only the ones that fail.
 - Layer decomposition is excellent on separated pieces and weaker on crowded ones; prompts ask for space around every piece for that reason.
-- The 30 s demo cost $1.64 on Atlas Cloud (6 scenes at $0.07 + layer splits at $0.16–0.29 each) plus 458 characters of an ElevenLabs plan. A 40–45 s reel with 8–10 scenes lands around $2–4, or the equivalent in Higgsfield credits; every price is shown and confirmed first.
+- The 30 s demo cost $1.64 on Atlas Cloud (6 scenes at $0.07 + layer splits at $0.16–0.29 each) plus 458 characters of an ElevenLabs plan. A 40–45 s reel with 8–10 scenes lands around $2–4, or the equivalent in Higgsfield credits; every price is shown and confirmed first. Measured on a 50 s, 10-scene reel: ≈ 850 ElevenLabs credits for the voice (about $0.15) and $2.45–2.93 on Atlas Cloud (most of it, ≈ $2.1–2.2, is the layer split).
+- It takes time: 45–60 minutes for a 50 s reel, most of it generating and splitting scenes and you reviewing them.
 
 ## License
 [MIT](LICENSE) © 2026 Annderson Rey

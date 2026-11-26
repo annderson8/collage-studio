@@ -41,6 +41,10 @@ Todas comparten una misma [carpeta de proyecto](skills/collage-reel/references/p
 ```
 O a mano: `cp -r collage-studio/skills/* ~/.claude/skills/`.
 
+**Recomendado: Claude Code en una carpeta vacía.** Crea una carpeta, ábrela en VS Code (o en la terminal, o en la pestaña *Code* de la app de escritorio) y ejecuta `/collage-reel` ahí. Todo corre en tu máquina, el proyecto queda en esa carpeta y en la primera ejecución el productor te ofrece crear un `.claude/settings.local.json` que permite las herramientas de Atlas/ElevenLabs y `node`/`ffmpeg`/`curl`, para que no tengas que aprobar cada imagen. Los gastos siguen esperando tu confirmación.
+
+**Chat de Claude (escritorio o web)**: pega la línea `/plugin marketplace add …` en el chat, o sube los zips de [Releases](../../releases) en *Settings → Capabilities → Skills*. Funciona, pero el código corre en un entorno en la nube con la red cerrada y te pedirá permitir cada dominio del que descarga (Atlas, ElevenLabs, npm).
+
 **Requisitos**: Node ≥ 18, ffmpeg, Chrome/Edge instalado, el conector **ElevenLabs** (voz v4 con emociones y tu voz clonada) y **Atlas Cloud** o **Higgsfield** (imágenes). Sin ellos puedes grabar tu voz y traer tus propias imágenes.
 
 ## Uso
@@ -58,7 +62,8 @@ En [`examples/alan-turing`](examples/alan-turing) están todos los archivos de t
 
 ## Límites
 - Claude ve los fotogramas pero no oye el audio: escúchalo antes de publicar.
-- El reel de demostración (30 s) costó $1,64 en Atlas Cloud (6 escenas a $0,07 y su separación en capas a $0,16–0,29 cada una) más 458 caracteres de un plan de ElevenLabs. Uno de 40–45 s con 8–10 escenas ronda los $2–4, o su equivalente en créditos de Higgsfield. Cada precio se muestra y se confirma antes.
+- El reel de demostración (30 s) costó $1,64 en Atlas Cloud (6 escenas a $0,07 y su separación en capas a $0,16–0,29 cada una) más 458 caracteres de un plan de ElevenLabs. Uno de 40–45 s con 8–10 escenas ronda los $2–4, o su equivalente en créditos de Higgsfield. Cada precio se muestra y se confirma antes. Medido en un reel de 50 s con 10 escenas: ≈ 850 créditos de ElevenLabs por la voz (unos $0,15) y $2,45–2,93 en Atlas Cloud (casi todo, ≈ $2,1–2,2, es la separación en capas).
+- Lleva tiempo: 45–60 minutos para un reel de 50 s, la mayor parte generando y separando escenas y revisándolas tú.
 
 ## Licencia
 [MIT](LICENSE) © 2026 Annderson Rey

@@ -19,10 +19,15 @@ You run a small studio that makes surreal photo-collage videos: vintage cut-outs
 The folder contract all five share is in `references/project-format.md`. Read it once at the start.
 
 ## 1 · Start
-1. Ask only for what's missing: style reference image(s) (required), topic or idea (required), length (default 30–45 s), format (default 9:16), language (default **English**), voice (default ElevenLabs v4 through the ElevenLabs connector; ask whether to use their cloned voice), image provider (Atlas Cloud or Higgsfield, whichever is connected; ask if both), where to save (default Downloads).
-2. Create the project folder `<save location>/<slug-of-title>/`, write `project.json`, copy the references into `style/refs/`.
-3. Check tools once: `node -v`, `ffmpeg -version`, Chrome/Edge present, and which connectors are live: **ElevenLabs** (voice), **Atlas Cloud** (`atlas_*`: voice fallback, images, layer split) and **Higgsfield** (`generate_image`…: images, background removal). Tell the user what falls back when one is missing (no ElevenLabs: ElevenLabs on Atlas with library voices, or they record it; no image connector: they supply images and cut-outs run locally with `cutout.mjs`).
-4. If the folder already has outputs, resume at the first missing step.
+1. Ask only for what's missing: style reference image(s) (required), topic or idea (required), length (default 30–45 s), format (default 9:16), language (default **English**), voice (default ElevenLabs v4 through the ElevenLabs connector; ask whether to use their cloned voice), image provider (Atlas Cloud or Higgsfield, whichever is connected; ask if both), where to save (default: the current working folder in Claude Code, Downloads elsewhere).
+2. **In Claude Code only**, offer once to cut the permission prompts (a full reel makes ~100 tool calls): write `.claude/settings.local.json` in the working folder with
+   ```json
+   { "permissions": { "allow": ["mcp__claude_ai_atlas-cloud", "mcp__claude_ai_ElevenLabs", "Bash(node:*)", "Bash(ffmpeg:*)", "Bash(ffprobe:*)", "Bash(curl:*)", "Bash(npm install:*)"] } }
+   ```
+   (merge with an existing file, never overwrite it). Say plainly that spending still waits for their OK: Atlas never charges without a confirmed quote, and you still ask before every paid step. Skip it if they decline or you are not in Claude Code. Don't add Higgsfield here: its generations charge credits on the call itself.
+3. Create the project folder `<save location>/<slug-of-title>/`, write `project.json`, copy the references into `style/refs/`.
+4. Check tools once: `node -v`, `ffmpeg -version`, Chrome/Edge present, and which connectors are live: **ElevenLabs** (voice), **Atlas Cloud** (`atlas_*`: voice fallback, images, layer split) and **Higgsfield** (`generate_image`…: images, background removal). Tell the user what falls back when one is missing (no ElevenLabs: ElevenLabs on Atlas with library voices, or they record it; no image connector: they supply images and cut-outs run locally with `cutout.mjs`).
+5. If the folder already has outputs, resume at the first missing step.
 
 ## 2 · Run the steps
 Invoke each skill in order (with the Skill tool when available, otherwise follow its SKILL.md), passing the project folder. Between steps:
