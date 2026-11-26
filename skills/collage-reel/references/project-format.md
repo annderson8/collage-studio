@@ -35,6 +35,17 @@ One folder per video. Each skill reads what the previous one wrote and writes on
   node_modules/                puppeteer-core (npm i puppeteer-core in the project root)
 ```
 
+## Series (several reels in one look)
+```
+<series>/
+  _kit/                        decorations cut once, shared by every reel (collage-scenes/scripts/kit-build.mjs)
+    kit.json                   {"format", "pieces": {"circle1": {file, kind, w, h, x, y, from}}}  (w/h/x/y in video px)
+    kit.js                     window.KIT  (read by build/piece.html as ../../_kit/kit.js)
+    circle1.png news1.png …    kinds: backdrop (circle*), lines (lines*, arc*), scrap (news*), accent (sq*, tri*…)
+  <reel-a>/  <reel-b>/ …       ordinary project folders, side by side
+```
+A reel in a series reuses a sibling's `style/`. Its scenes are generated **without** the kit's decorations; the video page adds them to every scene that has no backdrop of its own (no layer named circle/ring/disc/sun), as sprites `kit_<name>`.
+
 ## Rules
 - Scene ids are two-digit strings: `01`, `02`, … Scene `01` is script line 0 and voice `cue(0)`.
 - All paths inside JSON are relative to the project root.

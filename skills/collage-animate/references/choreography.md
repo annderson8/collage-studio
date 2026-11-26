@@ -23,6 +23,8 @@ const CUSTOM_SCENES = [
 - Land the hero on the key word: `in.at = word.start - scene.start - dur * hit`. `hit` = .36 for `drop` (first contact), .25 for `pop`, 1 for `slideL/slideR` (it arrives at the end of `dur`), 0 for `swing`. Word times are in `voice/voice.json`.
 - Full working example (6 scenes, every hero on its word): `examples/alan-turing/build/choreography.js` in the repository.
 
+**Series kit.** When `../../_kit/kit.js` exists, its pieces are sprites `kit_<name>` (`kit_circle1`, `kit_lines2`, `kit_news1`, `kit_sq3`…) with a home position like any cut-out, and the automatic pass already puts a backdrop, geometry, a scrap and two accents in every scene without its own circle. In `CUSTOM_SCENES` keep them, move small ones off the hero (`x`, `y`), or mirror (`flip: true`). Backdrop and geometry go first in the list (behind), accents last.
+
 ## Order and timing
 - A **backdrop** (a giant flat circle or sun with the hero in front of it) pops in first, at `.05`. Never `drop` it: it would fall through the caption band, and red words over a red circle vanish. The automatic pass already treats any piece over ~18% of the frame with others in front of it as a backdrop.
 - Then ground (the foreground band rises), then the hero (drops with a bounce, pops with overshoot, or swings in from above), then the people rise into place, then small accents pop on a word of their own, then leaves flutter.

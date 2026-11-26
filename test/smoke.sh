@@ -3,7 +3,7 @@
 # Needs Chrome/Edge + ffmpeg + `npm install` at the repo root.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd); S=$ROOT/skills
-P=$(mktemp -d); trap 'rm -rf "$P"' EXIT; cd "$P"
+SER=$(mktemp -d); trap 'rm -rf "$SER"' EXIT; P=$SER/reel; mkdir -p "$P"; cd "$P"   # a reel inside a series folder
 mkdir -p style script voice scenes build && ln -s "$ROOT/node_modules" node_modules
 ok() { echo "✓ $1"; }
 fail() { echo "✗ $1"; exit 1; }
@@ -60,4 +60,7 @@ node "$R/render.mjs" build/piece.html build/out.mp4 --from 1 --to 2.5 --jobs 2 >
 grep -q '"tear"' build/out.events.json || fail "events"; ok "events (auto scenes)"
 node "$R/score.mjs" build/out.events.json build/sfx.wav >/dev/null && test -s build/sfx.wav || fail "score"; ok "score"
 bash "$R/deliver.sh" build/out.mp4 build/sfx.wav final.mp4 voice/voice.mp3 >/dev/null && test -s final.mp4 || fail "deliver"; ok "deliver"
+# series kit: a decoration cut once (here the red disc of scene 03) shows up in a scene that has none of its own
+node "$S/collage-scenes/scripts/kit-build.mjs" ../_kit . circle1=scenes/layers/03/layer_1.png | grep -q "1 backdrop" && test -s ../_kit/kit.js || fail "kit-build"; ok "kit-build"
+node "$R/render.mjs" build/piece.html build/kit.mp4 --from 1.5 --to 2.5 >/dev/null && grep -q '"kit_circle1"' build/kit.events.json || fail "kit in the video"; ok "kit in the video"
 echo "all good"

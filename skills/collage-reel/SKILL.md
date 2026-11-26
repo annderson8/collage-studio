@@ -28,6 +28,7 @@ The folder contract all five share is in `references/project-format.md`. Read it
 3. Create the project folder `<save location>/<slug-of-title>/`, write `project.json`, copy the references into `style/refs/`.
 4. Check tools once: `node -v`, `ffmpeg -version`, Chrome/Edge present, and which connectors are live: **ElevenLabs** (voice), **Atlas Cloud** (`atlas_*`: voice fallback, images, layer split) and **Higgsfield** (`generate_image`…: images, background removal). Tell the user what falls back when one is missing (no ElevenLabs: ElevenLabs on Atlas with library voices, or they record it; no image connector: they supply images and cut-outs run locally with `cutout.mjs`).
 5. If the folder already has outputs, resume at the first missing step.
+6. **Series.** If the parent folder already holds other reels (siblings with `style/style.json`) or a `_kit/` folder, this reel belongs to a series. Offer once, in one message: reuse the newest sibling's style (copy its `style/`, refs included, and skip `collage-style`), its language and voice, and the series kit when there is one. Say what it saves: the kit's decorations (giant circle, geometry lines, small shapes, newspaper scraps) are left out of the new scenes and added in the animation, so the layer split returns about half the layers. A series with reels but no `_kit/` yet: offer to build it from the best finished sibling (free, `collage-scenes` § Series kit) before generating.
 
 ## 2 · Run the steps
 Invoke each skill in order (with the Skill tool when available, otherwise follow its SKILL.md), passing the project folder. Between steps:
@@ -38,7 +39,7 @@ Invoke each skill in order (with the Skill tool when available, otherwise follow
 | script | the hook + every line with its visual twist | **yes**: everything after this costs money or time |
 | voice | voice (clone or library), model, emotion per line, character count or Atlas quote | **yes** before generating |
 | voice done | the cue table with emotions; ask them to listen to `voice/voice.mp3` | no |
-| scenes quote | provider, number of images, models, total price or credits | **yes** |
+| scenes quote | provider, number of images, models, total price or credits (and, in a series with a kit, that the decorations come from the kit) | **yes** |
 | scenes | one contact row of all scenes, plus the quote to split them into layers | **yes**: regenerating later is expensive |
 | layers | `scenes/check.png` (each scene rebuilt from its layers) | no, fix misplaced pieces yourself |
 | animate | `final.mp4`, the contact sheet, beats with timestamps | done |

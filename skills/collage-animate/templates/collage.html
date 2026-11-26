@@ -7,6 +7,7 @@ canvas{max-width:100vw;max-height:100vh}#hud{position:fixed;left:8px;bottom:6px;
 <script src="../style/style.js"></script>      <!-- collage-style:  window.STYLE  -->
 <script src="../voice/voice.js"></script>      <!-- collage-voice:  window.VOICE  -->
 <script src="../scenes/manifest.js"></script>  <!-- collage-scenes: window.CUTOUTS, window.PLATES -->
+<script src="../../_kit/kit.js"></script>      <!-- series kit next to the project (kit-build.mjs): window.KIT -->
 <script>
 'use strict';
 /* =====================================================================
@@ -26,6 +27,7 @@ const ROOT = '../';                                  // manifest paths are relat
 const VOICE = window.VOICE || null;                 // {duration, phrases[], words[]}
 const CUTOUTS = window.CUTOUTS || {};               // {"01_circle": {src,x,y,w,h,sceneW,sceneH,scene,z,name}}
 const PLATES = window.PLATES || {};                 // {"01": "scenes/layers/01/base.png"}
+const KIT = window.KIT || {};                       // {"circle1": {src,kind,w,h,x,y}}: series decorations, as sprites "kit_<name>"
 const cue = (i, fallback) => (VOICE && VOICE.phrases[i]) ? VOICE.phrases[i].start : fallback;
 const HOLD = (STYLE.motion && STYLE.motion.hold) ?? 1.2;      // seconds the last frame holds after the voice ends (≥ 1)
 const DUR = VOICE ? +(VOICE.duration + HOLD).toFixed(2) : 9.5;
@@ -267,8 +269,25 @@ function autoScenes() {
       const at = back ? .05 : +(.2 + j * Math.min(.16, 1.2 / pcs.length)).toFixed(2);   // all in within ~1.4 s
       return { a: k, in: { type, at, dur: type === 'drop' ? .9 : .55 }, idle: back ? { bob: 4, period: 3.6 } : k === hero ? { bob: 6, period: 3.4 } : !ground ? { bob: 3, period: 2.6 } : undefined };
     });
-    return { id, start: i ? +(cue(i, i * 3) - .05).toFixed(2) : 0, bg: id, layers };
+    const own = pcs.some(([, m]) => /circle|ring|disc|sun/.test(m.name || ''));   // the scene brought its own backdrop
+    const decor = own ? { back: [], front: [] } : kitDecor(i);
+    return { id, start: i ? +(cue(i, i * 3) - .05).toFixed(2) : 0, bg: id, layers: [...decor.back, ...layers, ...decor.front] };
   });
+}
+
+// 5c. Series kit: scenes generated without the recurring decorations get them from ../../_kit (kit-build.mjs).
+//     Scene i takes the next backdrop, geometry, scrap and two accents of the kit, each where it sat in the scene
+//     it was cut from; odd scenes mirror the small pieces so no two neighbours look stamped.
+function kitDecor(i) {
+  const of = kind => Object.keys(KIT).filter(k => KIT[k].kind === kind).sort();
+  const B = of('backdrop'), Ln = of('lines'), Sc = of('scrap'), A = of('accent');
+  const mir = i % 2 === 1, at = (k, j) => ({ a: 'kit_' + k, ...(mir && KIT[k].kind !== 'backdrop' ? { x: W - KIT[k].x, y: KIT[k].y } : {}), ...j });
+  const back = [], front = [];
+  if (B.length) back.push(at(B[i % B.length], { in: { type: 'pop', at: .05, dur: .5 }, idle: { bob: 4, period: 3.6 } }));
+  if (Ln.length) back.push(at(Ln[i % Ln.length], { flip: mir, in: { type: 'fade', at: .15, dur: .6 } }));
+  if (Sc.length) back.push(at(Sc[i % Sc.length], { in: { type: 'pop', at: .7, dur: .45 } }));
+  for (let j = 0; j < Math.min(2, A.length); j++) front.push(at(A[(2 * i + j) % A.length], { in: { type: 'pop', at: .5 + j * .15, dur: .4 } }));
+  return { back, front };
 }
 const SCENES = CUSTOM_SCENES || (Object.keys(PLATES).length ? autoScenes() : DEMO_SCENES);
 window.SCENES = SCENES;
@@ -292,6 +311,11 @@ async function makeAssets() {
     const img = await loadImg(ROOT + m.src), sc = Math.max(W / m.sceneW, H / m.sceneH);   // cover-fit like the scene
     SPR[k] = makeSprite(img, m.w * sc, m.h * sc, 1, { grain: .25 });
     SPR[k].home = { x: (m.x + m.w / 2) * sc - (m.sceneW * sc - W) / 2, y: (m.y + m.h / 2) * sc - (m.sceneH * sc - H) / 2 };
+  }
+  for (const [k, m] of Object.entries(KIT)) {             // series kit pieces, already in video pixels
+    const img = await loadImg(ROOT + m.src);
+    SPR['kit_' + k] = makeSprite(img, m.w, m.h, 1, m.kind === 'lines' ? { shadow: 0, grain: 0 } : { grain: .25 });
+    SPR['kit_' + k].home = { x: m.x, y: m.y };
   }
   for (const [k, m] of Object.entries(PLATES)) TEX[k] = await loadImg(ROOT + m);   // clean background plates
   const link = document.createElement('link'); link.rel = 'stylesheet';            // caption font (Google Fonts)

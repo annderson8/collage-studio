@@ -38,6 +38,15 @@ no numbers, no formulas. Match the style of the reference image exactly, but do 
 ```
 All six prompts of the demo reel: `examples/alan-turing/scenes/prompts.json` in the repository. "Do not copy its subjects" matters: without it the model reuses the reference's figures.
 
+### Same series, with a kit (decorations added in the animation)
+```
+Vertical 9:16 surreal vintage photo collage on aged cream graph paper with a fine light teal grid, paper stains
+and grain. Main subject, centred a little below the middle: [THE IMPOSSIBLE IMAGE as black-and-white halftone
+cut-outs]. Only these pieces, well separated, with plain graph paper around each one. No red circle, no red squares
+or triangles, no geometry lines, no newspaper scraps. Keep the top 15% plain. Faint soft drop shadows, no text.
+Match the style of the reference image exactly, but do not copy its subjects.
+```
+
 ## 3 · Helpful extras to request
 - A **clean plate** per scene ("the same image without the [object] and people") gives a perfect background behind the pieces.
 - An **isolated version** of hard pieces ("the [statue] alone on a plain white background") keys out perfectly with `cutout.mjs`.

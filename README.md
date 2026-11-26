@@ -68,6 +68,9 @@ Or one step at a time:
 /collage-animate  Animate these scenes piece by piece, synced to voice.mp3
 ```
 
+## Series: same look, lower cost
+Keep the reels of one series side by side in one folder (`historians/tesla`, `historians/ada-lovelace`…). From the second reel on, `/collage-reel` notices its siblings and offers to reuse their style, language and voice. After the first reel it can also build a **series kit** (`_kit/`), for free, from that reel's layers: the giant circle, geometry lines, small red shapes and newspaper scraps, cut once. New scenes are then generated without them and the animation adds them back, so the layer split (≈ 75% of the Atlas bill) returns about half the layers.
+
 ## Under the hood
 
 All scripts are plain Node + ffmpeg; the only package is `puppeteer-core`.
@@ -78,6 +81,7 @@ All scripts are plain Node + ffmpeg; the only package is `puppeteer-core`.
 | `voice-json.mjs` | voice | Aligns any word-timestamped transcript (Whisper, Seed ASR, Scribe…) to the script: exact words, STT typos never reach captions |
 | `layers-import.mjs` | scenes | Takes the decomposition's cropped, rescaled layers and finds each one's scale, position and stacking order by matching it against the scene, including flat shapes and pieces partly hidden behind others |
 | `layers-check.mjs` | scenes | Rebuilds each scene from its layers next to the original, one labelled box per layer, to catch a misplaced piece before animating |
+| `kit-build.mjs` | scenes | Builds a series kit from a finished reel's layers: decorations reused by every later reel instead of being generated and split again |
 | `cutout.mjs` | scenes | Local fallback: colour-key or mask cut-outs plus a rebuilt background plate |
 | `render.mjs` | animate | Renders the canvas page through your browser: stills, ranges, `--jobs N` parallel, environment check |
 | `score.mjs` | animate | Synthesizes torn paper, thuds, pops, swishes and leaf flutters on the exact event times of the picture |

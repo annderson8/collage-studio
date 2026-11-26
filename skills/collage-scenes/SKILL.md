@@ -36,6 +36,7 @@ Size: the video's aspect (9:16 → the model's closest portrait size, ≥ 1080×
 - Ask for **clearly separated pieces with space around them** and **plain ground behind them**. It makes the layers clean.
 - No text in images. Same continuity device in every scene.
 - Keep the **top 15% of the frame as plain ground**: the captions sit there. A big shape in the caption colour (a red circle under red active words) makes them unreadable.
+- **In a series with a kit** (`../_kit/kit.json` exists): leave the decorations out of the prompt and say so: "no red circle, no red squares or triangles, no geometry lines, no newspaper scraps: only [the pieces] on plain aged graph paper". Keep the hero where the kit's backdrop sits (centre, ~55–60% down). The split then returns only the real pieces.
 - Full template and tips: `references/scene-prompts.md`.
 
 ## 2 · Quote, confirm, generate
@@ -89,6 +90,18 @@ Find boxes by looking at the image; `--mask` takes a full-size alpha mask from a
 2. One cut-out per piece, each with its own box around it and the shared mask: `node "<skill dir>/scripts/cutout.mjs" scenes/01.png --name machine --box 300,1150,500,560 --mask scenes/layers/01/nobg.png`.
 3. Ground bands and big flat shapes the remover treats as background (a giant circle, ground bands): cut them with colour-key (no `--mask`), or generate an isolated version ("the [sun] alone on a plain white background", using the scene as reference) and remove its background.
 4. `cutout.mjs scenes/01.png --plate` rebuilds the background behind everything cut. For a perfect plate, generate one: "the same image without the [pieces]", with the scene as reference.
+
+## Series kit
+Recurring decorations (the continuity circle, geometry lines, small red shapes, newspaper scraps) are ~half the layers of every split, and a split is billed by its layers. Cut them once per series:
+```bash
+# from a finished reel of the series, its layers already imported; look at them first and pick the cleanest
+node "<skill dir>/scripts/kit-build.mjs" ../_kit . circle1=scenes/layers/03/circle.png lines1=scenes/layers/01/lines.png \
+     news1=scenes/layers/02/news.png sq1=scenes/layers/01/sq1.png tri1=scenes/layers/01/tri1.png
+```
+The name sets the kind: `circle*` backdrop, `lines*`/`arc*` geometry, `news*` scrap, anything else accent. 3–4 backdrops, 4–5 geometry, 4–5 scraps and 6 accents give every scene a different mix. It is free and can be run again to add pieces. The folder must be called `_kit` and sit next to the reels.
+- Later reels: prompts without the decorations (§ Prompt rules), name a scene's own circle layer `circle` in `layers.json` only when the scene really needs its own; every other scene gets kit decorations automatically in the animation.
+- On scenes with plain graph paper behind 2–4 well separated pieces, the local route (background remover + `cutout.mjs --mask`) is also worth trying before the paid split.
+- Show the user one still with the kit in place (`render.mjs --stills`) together with the contact row, so they approve the scene as it will look.
 
 ## 4 · Check and show
 Look at each scene's pieces and plate (a contact row of `scenes/layers/<id>/*.png`): pieces complete, no halos, plate clean where pieces were. Skipped layers vanish from the video (nothing is behind them in the base), so only specks may be skipped: if a visible piece was dropped, lower `--min-area` and rerun the import. Show the user a row per scene and the totals (scenes, pieces, money or credits spent, per provider).

@@ -60,6 +60,9 @@ Los guiones y la voz salen en inglés por defecto; puedes pedir otro idioma en c
 
 En [`examples/alan-turing`](examples/alan-turing) están todos los archivos de texto del reel de demostración: biblia de estilo, guion con fuentes, texto de la voz con sus emociones y tiempos por palabra, los seis prompts de escena y la coreografía final.
 
+## Series: mismo estilo, menos coste
+Guarda los reels de una serie juntos en una carpeta (`historiadores/tesla`, `historiadores/ada-lovelace`…). Desde el segundo reel, `/collage-reel` detecta los proyectos hermanos y te ofrece reutilizar su estilo, idioma y voz. Tras el primer reel también puede crear un **kit de la serie** (`_kit/`), gratis, con sus capas: el círculo grande, las líneas de geometría, las figuras rojas y los recortes de periódico, recortados una sola vez. Las escenas nuevas se generan sin ellos y la animación los vuelve a poner, así que la separación en capas (≈ 75 % de lo que se paga en Atlas) devuelve más o menos la mitad de capas.
+
 ## Límites
 - Claude ve los fotogramas pero no oye el audio: escúchalo antes de publicar.
 - El reel de demostración (30 s) costó $1,64 en Atlas Cloud (6 escenas a $0,07 y su separación en capas a $0,16–0,29 cada una) más 458 caracteres de un plan de ElevenLabs. Uno de 40–45 s con 8–10 escenas ronda los $2–4, o su equivalente en créditos de Higgsfield. Cada precio se muestra y se confirma antes. Medido en un reel de 50 s con 10 escenas: ≈ 850 créditos de ElevenLabs por la voz (unos $0,15) y $2,45–2,93 en Atlas Cloud (casi todo, ≈ $2,1–2,2, es la separación en capas).
