@@ -36,6 +36,8 @@ Each skill reads and writes one shared [project folder](skills/collage-reel/refe
 /plugin install collage-studio@collage-studio
 ```
 
+Installed as a plugin, the skills carry the plugin name in front: `/collage-studio:collage-reel`, `/collage-studio:collage-voice`… Copied by hand they have no prefix (`/collage-reel`); the examples below use the plugin names.
+
 **Claude Code (manual)**
 ```bash
 git clone https://github.com/annderson8/collage-studio
@@ -44,7 +46,7 @@ cp -r collage-studio/skills/* ~/.claude/skills/
 
 **Claude.ai / Desktop chat**: paste the `/plugin marketplace add …` line in the chat, or upload the zips from [Releases](../../releases) under *Settings → Capabilities → Skills*. It works, but the code runs in a cloud sandbox with closed network, so you'll be asked to allow each domain it downloads from (Atlas, ElevenLabs, npm).
 
-**Recommended: Claude Code in an empty folder.** Create a folder, open it in VS Code (or the terminal, or the *Code* tab of the desktop app) and run `/collage-reel` there. Everything runs on your machine, the project lands in that folder, and on the first run the producer offers to write a `.claude/settings.local.json` that allows the Atlas/ElevenLabs tools and `node`/`ffmpeg`/`curl`, so you're not asked to approve every image. Spending still waits for your OK.
+**Recommended: Claude Code in an empty folder.** Create a folder, open it in VS Code (or the terminal, or the *Code* tab of the desktop app) and run `/collage-studio:collage-reel` there. Everything runs on your machine, the project lands in that folder, and on the first run the producer offers to write a `.claude/settings.local.json` that allows the Atlas/ElevenLabs tools and `node`/`ffmpeg`/`curl`, so you're not asked to approve every image. Spending still waits for your OK.
 
 **Requirements**
 - Node ≥ 18, ffmpeg, an installed Chrome / Edge / Chromium. The skills install `puppeteer-core` (a few MB) in the project folder and never download a browser.
@@ -55,7 +57,7 @@ cp -r collage-studio/skills/* ~/.claude/skills/
 ## Use it
 
 ```
-/collage-reel
+/collage-studio:collage-reel
 A 30-second reel in Spanish: who Alan Turing was and what he did. Use my cloned voice and the style of this image.
 [attach 1–3 reference images]
 ```
@@ -63,13 +65,15 @@ Claude shows you the style, then the script (you approve), then the voice and sc
 
 Or one step at a time:
 ```
-/collage-script   Script about how bees navigate by the sun, 30 s
-/collage-voice    Generate the voice for this project with my cloned voice
-/collage-animate  Animate these scenes piece by piece, synced to voice.mp3
+/collage-studio:collage-script   Script about how bees navigate by the sun, 30 s
+/collage-studio:collage-voice    Generate the voice for this project with my cloned voice
+/collage-studio:collage-animate  Animate these scenes piece by piece, synced to voice.mp3
 ```
 
 ## Series: same look, lower cost
-Keep the reels of one series side by side in one folder (`historians/tesla`, `historians/ada-lovelace`…). From the second reel on, `/collage-reel` notices its siblings and offers to reuse their style, language and voice. After the first reel it can also build a **series kit** (`_kit/`), for free, from that reel's layers: the giant circle, geometry lines, small red shapes and newspaper scraps, cut once. New scenes are then generated without them and the animation adds them back, so the layer split (≈ 75% of the Atlas bill) returns about half the layers.
+Keep the reels of one series side by side in one folder (`historians/tesla`, `historians/ada-lovelace`…). From the second reel on, the producer notices its siblings and offers to reuse their style, language and voice. After the first reel it can also build a **series kit** (`_kit/`), for free, from that reel's layers: the giant circle, geometry lines, small red shapes and newspaper scraps, cut once. New scenes are then generated without them and the animation adds them back, so the layer split (≈ 75% of the Atlas bill) returns about half the layers.
+
+Measured on the same series (10 scenes, ≈ 46 s each): Hedy Lamarr without a kit, 124 layers and $3.02 on Atlas ($2.23 of it the split); Grace Hopper with the kit, 48 layers and $1.76 ($1.04 the split). That is 53% less on the split and 42% less in total, with the same look.
 
 ## Under the hood
 

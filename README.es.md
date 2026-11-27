@@ -41,7 +41,9 @@ Todas comparten una misma [carpeta de proyecto](skills/collage-reel/references/p
 ```
 O a mano: `cp -r collage-studio/skills/* ~/.claude/skills/`.
 
-**Recomendado: Claude Code en una carpeta vacía.** Crea una carpeta, ábrela en VS Code (o en la terminal, o en la pestaña *Code* de la app de escritorio) y ejecuta `/collage-reel` ahí. Todo corre en tu máquina, el proyecto queda en esa carpeta y en la primera ejecución el productor te ofrece crear un `.claude/settings.local.json` que permite las herramientas de Atlas/ElevenLabs y `node`/`ffmpeg`/`curl`, para que no tengas que aprobar cada imagen. Los gastos siguen esperando tu confirmación.
+Instaladas como plugin, las skills llevan delante el nombre del plugin: `/collage-studio:collage-reel`, `/collage-studio:collage-voice`… Copiadas a mano se llaman sin prefijo (`/collage-reel`).
+
+**Recomendado: Claude Code en una carpeta vacía.** Crea una carpeta, ábrela en VS Code (o en la terminal, o en la pestaña *Code* de la app de escritorio) y ejecuta `/collage-studio:collage-reel` ahí. Todo corre en tu máquina, el proyecto queda en esa carpeta y en la primera ejecución el productor te ofrece crear un `.claude/settings.local.json` que permite las herramientas de Atlas/ElevenLabs y `node`/`ffmpeg`/`curl`, para que no tengas que aprobar cada imagen. Los gastos siguen esperando tu confirmación.
 
 **Chat de Claude (escritorio o web)**: pega la línea `/plugin marketplace add …` en el chat, o sube los zips de [Releases](../../releases) en *Settings → Capabilities → Skills*. Funciona, pero el código corre en un entorno en la nube con la red cerrada y te pedirá permitir cada dominio del que descarga (Atlas, ElevenLabs, npm).
 
@@ -50,7 +52,7 @@ O a mano: `cp -r collage-studio/skills/* ~/.claude/skills/`.
 ## Uso
 
 ```
-/collage-reel
+/collage-studio:collage-reel
 Reel de 30 segundos: un breve resumen de quién fue Alan Turing y qué hizo. Usa mi voz clonada y el estilo de esta imagen.
 [adjunta 1–3 referencias]
 ```
@@ -61,7 +63,9 @@ Los guiones y la voz salen en inglés por defecto; puedes pedir otro idioma en c
 En [`examples/alan-turing`](examples/alan-turing) están todos los archivos de texto del reel de demostración: biblia de estilo, guion con fuentes, texto de la voz con sus emociones y tiempos por palabra, los seis prompts de escena y la coreografía final.
 
 ## Series: mismo estilo, menos coste
-Guarda los reels de una serie juntos en una carpeta (`historiadores/tesla`, `historiadores/ada-lovelace`…). Desde el segundo reel, `/collage-reel` detecta los proyectos hermanos y te ofrece reutilizar su estilo, idioma y voz. Tras el primer reel también puede crear un **kit de la serie** (`_kit/`), gratis, con sus capas: el círculo grande, las líneas de geometría, las figuras rojas y los recortes de periódico, recortados una sola vez. Las escenas nuevas se generan sin ellos y la animación los vuelve a poner, así que la separación en capas (≈ 75 % de lo que se paga en Atlas) devuelve más o menos la mitad de capas.
+Guarda los reels de una serie juntos en una carpeta (`historiadores/tesla`, `historiadores/ada-lovelace`…). Desde el segundo reel, el productor detecta los proyectos hermanos y te ofrece reutilizar su estilo, idioma y voz. Tras el primer reel también puede crear un **kit de la serie** (`_kit/`), gratis, con sus capas: el círculo grande, las líneas de geometría, las figuras rojas y los recortes de periódico, recortados una sola vez. Las escenas nuevas se generan sin ellos y la animación los vuelve a poner, así que la separación en capas (≈ 75 % de lo que se paga en Atlas) devuelve más o menos la mitad de capas.
+
+Medido en la misma serie (10 escenas, ≈ 46 s cada reel): Hedy Lamarr sin kit, 124 capas y $3,02 en Atlas ($2,23 de separación); Grace Hopper con el kit, 48 capas y $1,76 ($1,04 de separación). Es un 53 % menos en la separación y un 42 % menos en total, con el mismo aspecto.
 
 ## Límites
 - Claude ve los fotogramas pero no oye el audio: escúchalo antes de publicar.

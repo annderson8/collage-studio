@@ -1,6 +1,6 @@
 {
   "name": "collage-studio",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Surreal photo-collage videos made by Claude: style from a reference, script, ElevenLabs v4 voice with emotions (your cloned voice too), scenes generated on Atlas Cloud or Higgsfield and split into layers, and every frame animated in code. No AI video model.",
   "author": {
     "name": "Annderson Rey"
